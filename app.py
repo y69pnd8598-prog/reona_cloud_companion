@@ -3,6 +3,7 @@ import json
 import os
 import time
 import traceback
+import urllib.error
 import urllib.parse
 import urllib.request
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -75,12 +76,17 @@ def call_fish_tts(text, speed, out_path):
         headers={
             "Authorization": "Bearer " + API_KEY,
             "Content-Type": "application/json",
+            "User-Agent": "Mozilla/5.0",
             "model": "speech-1.6",
         },
         method="POST",
     )
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        audio_bytes = resp.read()
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            audio_bytes = resp.read()
+    except urllib.error.HTTPError as e:
+        detail = e.read().decode("utf-8", errors="ignore")
+        raise RuntimeError(f"FishAudio HTTP {e.code}: {detail}") from e
     with open(out_path, "wb") as f:
         f.write(audio_bytes)
 
@@ -100,14 +106,19 @@ def call_groq_chat(prompt, system_prompt="你是台灣口語感自然的聊天�
         "https://api.groq.com/openai/v1/chat/completions",
         data=json.dumps(payload).encode("utf-8"),
         headers={
-            "Authorization": "Bearer " + GROQ_API_KEY,
+            "Authorization": "Bearer " + GROQ_API_KEY.strip(),
             "Content-Type": "application/json",
+            "User-Agent": "Mozilla/5.0",
         },
         method="POST",
     )
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        res_data = json.loads(resp.read().decode("utf-8"))
-    return res_data["choices"][0]["message"]["content"].strip()
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            res_data = json.loads(resp.read().decode("utf-8"))
+        return res_data["choices"][0]["message"]["content"].strip()
+    except urllib.error.HTTPError as e:
+        detail = e.read().decode("utf-8", errors="ignore")
+        raise RuntimeError(f"Groq HTTP {e.code}: {detail}") from e
 
 
 class H(BaseHTTPRequestHandler):
@@ -178,14 +189,22 @@ class H(BaseHTTPRequestHandler):
             model_root = os.path.abspath(os.path.join(BASE, "model"))
             target_path = os.path.abspath(os.path.join(model_root, safe_rel))
 
-            if not os.path.isfile(target_path) and safe_rel.endswith(".model3.json"):
-                for root_dir, _, files in os.walk(model_root):
-                    for fn in files:
-                        if fn.endswith(".model3.json"):
-                            target_path = os.path.join(root_dir, fn)
-                            break
-                    if os.path.isfile(target_path):
+            found_model3 = None
+            for root_dir, _, files in os.walk(model_root):
+                for fn in files:
+                    if fn.endswith(".model3.json"):
+                        found_model3 = os.path.join(root_dir, fn)
                         break
+                if found_model3:
+                    break
+
+            if not os.path.isfile(target_path) and found_model3:
+                if safe_rel.endswith(".model3.json"):
+                    target_path = found_model3
+                else:
+                    alt_path = os.path.abspath(os.path.join(os.path.dirname(found_model3), safe_rel))
+                    if alt_path.startswith(model_root) and os.path.isfile(alt_path):
+                        target_path = alt_path
 
             if target_path.startswith(model_root) and os.path.isfile(target_path):
                 ext = os.path.splitext(target_path)[1].lower()
