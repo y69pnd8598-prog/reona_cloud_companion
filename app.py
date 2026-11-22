@@ -173,10 +173,20 @@ class H(BaseHTTPRequestHandler):
                 self._send_file(pixi_path, "application/javascript; charset=utf-8")
                 return
         if parsed.path.startswith("/model/"):
-            rel_path = parsed.path[len("/model/") :]
-            safe_rel = os.path.normpath(urllib.parse.unquote(rel_path))
+            rel_path = urllib.parse.unquote(parsed.path[len("/model/") :])
+            safe_rel = os.path.normpath(rel_path)
             model_root = os.path.abspath(os.path.join(BASE, "model"))
             target_path = os.path.abspath(os.path.join(model_root, safe_rel))
+
+            if not os.path.isfile(target_path) and safe_rel.endswith(".model3.json"):
+                for root_dir, _, files in os.walk(model_root):
+                    for fn in files:
+                        if fn.endswith(".model3.json"):
+                            target_path = os.path.join(root_dir, fn)
+                            break
+                    if os.path.isfile(target_path):
+                        break
+
             if target_path.startswith(model_root) and os.path.isfile(target_path):
                 ext = os.path.splitext(target_path)[1].lower()
                 mime_map = {
