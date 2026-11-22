@@ -20,15 +20,17 @@
 
         /* 左側今日狀態面板 */
         .status-panel {
-            position: absolute;
-            top: 24px;
-            left: 24px;
-            width: 305px;
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            width: 295px;
+            max-height: calc(100vh - 110px);
+            overflow-y: auto;
             z-index: 30;
             background: rgba(24, 24, 34, 0.9);
             border: 1px solid rgba(255, 255, 255, 0.14);
             border-radius: 18px;
-            padding: 16px 18px;
+            padding: 14px 16px;
             backdrop-filter: blur(12px);
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
         }
@@ -36,23 +38,23 @@
             font-size: 15px;
             font-weight: bold;
             color: #ff7b9c;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
         .status-row {
-            font-size: 13.5px;
-            line-height: 1.65;
+            font-size: 13px;
+            line-height: 1.55;
             color: #e6e6f0;
-            margin-bottom: 6px;
+            margin-bottom: 5px;
         }
         .reason-box {
             background: rgba(255, 255, 255, 0.06);
             border-left: 3px solid #ff7b9c;
             padding: 6px 10px;
             border-radius: 6px;
-            font-size: 12.5px;
+            font-size: 12px;
             color: #d0d0e0;
             margin: 6px 0 8px 0;
             line-height: 1.45;
@@ -66,7 +68,7 @@
             color: #cfd6ff;
             margin-top: 6px;
             line-height: 1.45;
-            max-height: 68px;
+            max-height: 64px;
             overflow-y: auto;
         }
         .badge {
@@ -90,7 +92,7 @@
             color: #90caf9;
         }
         .panel-actions {
-            margin-top: 12px;
+            margin-top: 10px;
             display: flex;
             flex-wrap: wrap;
             gap: 6px;
@@ -117,14 +119,14 @@
 
         /* 右上角輕巧視訊控制列 */
         .call-bar {
-            position: absolute;
-            top: 24px;
-            right: 24px;
+            position: fixed;
+            top: 20px;
+            right: 20px;
             z-index: 30;
             background: rgba(24, 24, 34, 0.9);
             border: 1px solid rgba(255, 255, 255, 0.16);
             border-radius: 16px;
-            padding: 12px 14px;
+            padding: 10px 14px;
             backdrop-filter: blur(12px);
             box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
             display: flex;
@@ -173,29 +175,34 @@
         }
 
         #status {
-            position: absolute;
+            position: fixed;
             z-index: 100;
             font-size: 15px;
             color: #ffcc00;
             text-align: center;
             top: 40%;
+            left: 50%;
             width: 80%;
-            transform: translateY(-50%);
+            max-width: 520px;
+            transform: translate(-50%, -50%);
             line-height: 1.6;
+            pointer-events: none;
         }
 
         #dialogBox {
-            position: absolute;
+            position: fixed;
             z-index: 99999;
-            bottom: 115px;
-            background: rgba(22, 22, 30, 0.94);
+            bottom: 92px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(22, 22, 30, 0.95);
             border: 2px solid #ff5277;
             border-radius: 18px;
-            padding: 14px 22px;
-            max-width: 520px;
-            width: 85%;
+            padding: 12px 20px;
+            max-width: 540px;
+            width: calc(100% - 40px);
             text-align: center;
-            font-size: 16.5px;
+            font-size: 16px;
             line-height: 1.5;
             color: #ffffff;
             box-shadow: 0 10px 30px rgba(0,0,0,0.6);
@@ -204,21 +211,25 @@
         }
 
         .chat-bar {
-            position: relative;
-            z-index: 20;
-            width: 90%;
+            position: fixed;
+            bottom: 18px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 50;
+            width: calc(100% - 40px);
             max-width: 600px;
-            margin-bottom: 24px;
             display: flex;
-            background: rgba(30, 30, 40, 0.88);
-            border: 1px solid rgba(255, 255, 255, 0.15);
+            align-items: center;
+            background: rgba(30, 30, 40, 0.92);
+            border: 1px solid rgba(255, 255, 255, 0.18);
             border-radius: 25px;
-            padding: 8px 15px;
+            padding: 6px 12px 6px 16px;
             backdrop-filter: blur(10px);
             box-shadow: 0 8px 32px rgba(0,0,0,0.45);
         }
         .chat-input {
             flex: 1;
+            min-width: 0;
             background: transparent;
             border: none;
             outline: none;
@@ -228,6 +239,7 @@
         }
         .chat-input::placeholder { color: rgba(255, 255, 255, 0.45); }
         .send-btn {
+            flex-shrink: 0;
             background: #ff5277;
             border: none;
             border-radius: 50%;
@@ -237,8 +249,11 @@
             display: flex;
             justify-content: center;
             align-items: center;
+            transition: transform 0.12s, background 0.2s;
         }
-        .send-btn svg { width: 18px; height: 18px; fill: white; }
+        .send-btn:hover { background: #ff6b8b; }
+        .send-btn:active { transform: scale(0.92); }
+        .send-btn svg { width: 18px; height: 18px; fill: white; pointer-events: none; }
     </style>
 
     <script src="https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js"></script>
@@ -265,14 +280,14 @@
         <div id="dcFeedBox" class="dc-feed-box">DC 近期動態：尚無紀錄</div>
 
         <div class="panel-actions">
-            <button id="btnUploadSkin" class="mini-btn skin-btn">👗 換皮膚(ZIP)</button>
-            <button id="btnResetSkin" class="mini-btn">↩️ 還原預設</button>
-            <button id="btnSyncDc" class="mini-btn">🔄 同步 DC</button>
-            <button id="btnCenterModel" class="mini-btn">🎯 置中</button>
-            <button id="btnRandomSymptom" class="mini-btn">🎲 切換不適</button>
-            <button id="btnCare" class="mini-btn">💊 吃藥休息</button>
-            <button id="btnHappy" class="mini-btn">😊 開心</button>
-            <button id="btnSad" class="mini-btn">🥺 難過</button>
+            <button type="button" id="btnUploadSkin" class="mini-btn skin-btn">👗 換皮膚(ZIP)</button>
+            <button type="button" id="btnResetSkin" class="mini-btn">↩️ 還原預設</button>
+            <button type="button" id="btnSyncDc" class="mini-btn">🔄 同步 DC</button>
+            <button type="button" id="btnCenterModel" class="mini-btn">🎯 置中</button>
+            <button type="button" id="btnRandomSymptom" class="mini-btn">🎲 切換不適</button>
+            <button type="button" id="btnCare" class="mini-btn">💊 吃藥休息</button>
+            <button type="button" id="btnHappy" class="mini-btn">😊 開心</button>
+            <button type="button" id="btnSad" class="mini-btn">🥺 難過</button>
         </div>
     </aside>
 
@@ -282,9 +297,9 @@
             <span><span id="callDot" class="call-dot"></span><span id="callLabel">視訊待機中</span></span>
         </div>
         <div class="call-btns">
-            <button id="btnToggleCall" class="call-btn">📞 開始視訊</button>
-            <button id="btnAutoTalk" class="call-btn">🎙️ 主動搭話：關</button>
-            <button id="btnTalkNow" class="call-btn">💬 讓她先說</button>
+            <button type="button" id="btnToggleCall" class="call-btn">📞 開始視訊</button>
+            <button type="button" id="btnAutoTalk" class="call-btn">🎙️ 主動搭話：關</button>
+            <button type="button" id="btnTalkNow" class="call-btn">💬 讓她先說</button>
         </div>
     </div>
 
@@ -293,7 +308,7 @@
 
     <div class="chat-bar">
         <input type="text" id="userInput" class="chat-input" placeholder="跟薇薇安說點什麼吧..." />
-        <button id="sendBtn" class="send-btn">
+        <button type="button" id="sendBtn" class="send-btn" aria-label="送出訊息">
             <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path></svg>
         </button>
     </div>
@@ -396,7 +411,6 @@
             statusDiv.style.display = 'none';
         }
 
-        // 解壓縮 ZIP 並支援「完整 .model3.json 模型包」或「純貼圖 PNG 替換包」
         async function loadSkinFromZip(file) {
             if (!file) return;
             if (typeof JSZip === 'undefined') {
@@ -424,7 +438,6 @@
 
                 const cleanSkinName = file.name.replace(/\.zip$/i, '');
 
-                // 情況 A：ZIP 內包含完整的 .model3.json
                 if (modelJsonPath) {
                     revokeActiveBlobUrls();
                     const baseDir = modelJsonPath.includes('/')
@@ -490,492 +503,4 @@
                             if (!Array.isArray(groupList)) continue;
                             for (const mItem of groupList) {
                                 if (mItem && mItem.File) {
-                                    const mEnt = resolveZipEntry(mItem.File);
-                                    if (mEnt) mItem.File = await toBlobUrl(mEnt, 'application/json');
-                                }
-                            }
-                        }
-                    }
-
-                    const patchedJsonUrl = URL.createObjectURL(
-                        new Blob([JSON.stringify(modelConfig)], { type: 'application/json' })
-                    );
-                    activeBlobUrls.push(patchedJsonUrl);
-
-                    await mountLive2DModel(patchedJsonUrl, cleanSkinName);
-                    applyActionMotion("happy_cheer");
-                    showDialog(`登登～換好「${cleanSkinName}」造型囉，好看嗎？`);
-                    return;
-                }
-
-                // 情況 B：ZIP 裡只有貼圖 PNG，直接替換現有模型的對應貼圖
-                const pngEntries = Object.entries(entries).filter(([k]) => k.toLowerCase().endsWith('.png'));
-                if (pngEntries.length > 0 && live2dModel && Array.isArray(live2dModel.textures)) {
-                    const origResp = await fetch(DEFAULT_MODEL_URL);
-                    const origConfig = await origResp.json();
-                    const origTexList = (origConfig.FileReferences && origConfig.FileReferences.Textures) || [];
-
-                    let replacedCount = 0;
-                    for (let i = 0; i < origTexList.length; i++) {
-                        const expectedName = origTexList[i].split('/').pop().toLowerCase();
-                        const matched = pngEntries.find(([k]) => k.split('/').pop().toLowerCase() === expectedName)
-                            || (pngEntries.length === 1 && i === 0 ? pngEntries[0] : null);
-
-                        if (matched) {
-                            const buf = await matched[1].async('arraybuffer');
-                            const url = URL.createObjectURL(new Blob([buf], { type: 'image/png' }));
-                            activeBlobUrls.push(url);
-                            const newTex = await PIXI.Texture.fromURL(url);
-                            live2dModel.textures[i] = newTex;
-                            replacedCount++;
-                        }
-                    }
-
-                    statusDiv.style.display = 'none';
-                    if (replacedCount > 0) {
-                        state.skinName = cleanSkinName;
-                        renderStatusPanel();
-                        applyActionMotion("happy_cheer");
-                        showDialog(`換上「${cleanSkinName}」的新衣服啦～`);
-                        return;
-                    }
-                }
-
-                statusDiv.style.display = 'none';
-                showDialog("這個 ZIP 裡找不到 .model3.json 或對應的貼圖檔喔！");
-            } catch (err) {
-                console.error(err);
-                statusDiv.style.display = 'none';
-                showDialog(`換皮膚失敗了：${err.message}`);
-            }
-        }
-
-        function renderStatusPanel() {
-            const hh = String(state.hour).padStart(2, '0');
-            const mm = String(state.minute).padStart(2, '0');
-            document.getElementById('simClock').innerText = `${hh}:${mm}`;
-
-            const dcBadgeEl = document.getElementById('dcSyncBadge');
-            dcBadgeEl.innerText = state.synced ? (state.dc_badge || "已連動") : "未讀到記憶檔";
-            dcBadgeEl.className = "badge " + (state.synced ? "badge-happy" : "");
-
-            const symptomBadge = document.getElementById('symptomBadge');
-            symptomBadge.innerText = state.symptom;
-            symptomBadge.className = "badge " + (state.symptom !== "健康" ? "badge-sick" : "");
-
-            document.getElementById('reasonBox').innerText = `原因：${state.reason}`;
-
-            const moodBadge = document.getElementById('moodBadge');
-            moodBadge.innerText = state.mood;
-            moodBadge.className = "badge " + (
-                state.mood === "開心" ? "badge-happy" :
-                state.mood === "難過" ? "badge-sad" : ""
-            );
-
-            document.getElementById('skinNameBadge').innerText = state.skinName || "預設造型";
-            document.getElementById('mealHintText').innerText = state.meal_hint;
-
-            const feedEl = document.getElementById('dcFeedBox');
-            if (Array.isArray(state.recent_turns) && state.recent_turns.length > 0) {
-                feedEl.innerText = "DC 近期：\n" + state.recent_turns.slice(-2).join("\n");
-            } else {
-                feedEl.innerText = "DC 近期：尚無對話紀錄";
-            }
-        }
-
-        function setEmotionExpression(emotion) {
-            state.mood = emotion;
-            renderStatusPanel();
-            if (!live2dModel || !live2dModel.internalModel) return;
-
-            try {
-                const coreModel = live2dModel.internalModel.coreModel;
-                if (!coreModel) return;
-
-                const setParamIfExists = (id, val) => {
-                    const idx = coreModel.getParameterIndex ? coreModel.getParameterIndex(id) : -1;
-                    if (idx !== -1 && coreModel.setParameterValueByIndex) {
-                        coreModel.setParameterValueByIndex(idx, val);
-                    }
-                };
-
-                if (emotion === "開心") {
-                    setParamIfExists("ParamMouthForm", 0.8);
-                    setParamIfExists("ParamEyeLSmile", 0.65);
-                    setParamIfExists("ParamEyeRSmile", 0.65);
-                } else if (emotion === "難過") {
-                    setParamIfExists("ParamMouthForm", -0.7);
-                    setParamIfExists("ParamEyeLSmile", 0);
-                    setParamIfExists("ParamEyeRSmile", 0);
-                } else {
-                    setParamIfExists("ParamMouthForm", 0);
-                    setParamIfExists("ParamEyeLSmile", 0);
-                    setParamIfExists("ParamEyeRSmile", 0);
-                }
-            } catch (err) {}
-        }
-
-        function applyActionMotion(actionName) {
-            state.action = actionName || "idle_normal";
-            actionStartedAt = Date.now();
-            if (!live2dModel || typeof live2dModel.motion !== 'function') return;
-
-            const groupMap = {
-                tired_unwell: ["Idle", "TapBody"],
-                shy_tease: ["TapBody", "Idle"],
-                happy_cheer: ["TapBody", "Idle"],
-                curious_think: ["Idle", "TapBody"],
-                idle_normal: ["Idle"]
-            };
-            const candidates = groupMap[state.action] || ["Idle"];
-            for (const grp of candidates) {
-                try {
-                    live2dModel.motion(grp, 0, 2);
-                    break;
-                } catch (e) {}
-            }
-        }
-
-        async function syncFromDiscord(force = false) {
-            if (state._manual_override && !force) return;
-            try {
-                const res = await fetch('/dc_status');
-                if (!res.ok) return;
-                const data = await res.json();
-                state = {
-                    ...state,
-                    ...data,
-                    _manual_override: false
-                };
-                renderStatusPanel();
-            } catch (e) {}
-        }
-
-        function startFallbackMouthAnimation(durationMs = 2600) {
-            clearInterval(fallbackMouthTimer);
-            const start = Date.now();
-            fallbackMouthTimer = setInterval(() => {
-                if (Date.now() - start > durationMs) {
-                    mouthOpenValue = 0;
-                    clearInterval(fallbackMouthTimer);
-                    return;
-                }
-                mouthOpenValue = 0.25 + Math.abs(Math.sin(Date.now() * 0.016)) * 0.65;
-            }, 40);
-        }
-
-        function playAudioWithLipSync(audioUrl, fallbackText = "") {
-            startFallbackMouthAnimation(Math.max(1800, fallbackText.length * 140));
-            if (!audioUrl) return;
-
-            const audio = new Audio(audioUrl);
-            audio.crossOrigin = "anonymous";
-
-            try {
-                const AudioCtx = window.AudioContext || window.webkitAudioContext;
-                const audioCtx = new AudioCtx();
-                const source = audioCtx.createMediaElementSource(audio);
-                const analyser = audioCtx.createAnalyser();
-                analyser.fftSize = 256;
-                source.connect(analyser);
-                analyser.connect(audioCtx.destination);
-
-                const dataArray = new Uint8Array(analyser.frequencyBinCount);
-                clearInterval(fallbackMouthTimer);
-
-                const meterInterval = setInterval(() => {
-                    if (audio.paused || audio.ended) {
-                        mouthOpenValue = 0;
-                        clearInterval(meterInterval);
-                        return;
-                    }
-                    analyser.getByteFrequencyData(dataArray);
-                    let sum = 0;
-                    for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
-                    mouthOpenValue = Math.min(1, (sum / dataArray.length) / 55);
-                }, 30);
-            } catch (e) {}
-
-            audio.play().catch(() => {});
-        }
-
-        function showDialog(text) {
-            dialogBox.innerText = text;
-            dialogBox.style.display = 'block';
-        }
-
-        async function sendChatRequest(promptText, isProactive = false) {
-            if (isRequestingChat) return;
-            isRequestingChat = true;
-            lastInteractionTime = Date.now();
-
-            if (!isProactive) {
-                showDialog("薇薇安正在思考中……");
-            }
-
-            try {
-                const response = await fetch('/chat', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        message: promptText,
-                        status: state
-                    })
-                });
-
-                const data = await response.json();
-                if (data.reply) showDialog(data.reply);
-                if (data.emotion) setEmotionExpression(data.emotion);
-                if (data.action) applyActionMotion(data.action);
-                playAudioWithLipSync(data.audio_url, data.reply || "");
-            } catch (err) {
-                if (!isProactive) {
-                    setEmotionExpression("難過");
-                    applyActionMotion("tired_unwell");
-                    showDialog("欸，通訊好像連不上伺服器啦！");
-                }
-            } finally {
-                isRequestingChat = false;
-                lastInteractionTime = Date.now();
-            }
-        }
-
-        function triggerProactiveVideoChat(forceNow = false) {
-            if (!forceNow && (!autoTalkEnabled || isRequestingChat)) return;
-            if (!forceNow && document.activeElement === userInput && userInput.value.trim().length > 0) return;
-            if (!forceNow && (Date.now() - lastInteractionTime < 16000)) return;
-
-            const healthyPrompts = [
-                "（視訊通話中，你看著畫面另一端的 Nick，用 1 句開朗溫柔的台灣女生口氣主動跟他搭話，分享你剛才在雪梨做的事或問他現在在忙什麼）",
-                "（視訊通話中，你托著臉看他幾秒，笑著隨口誇他一句或開個小玩笑，1 句短話即可）",
-                "（視訊通話中，你剛喝了一口飲料心情很好，隨手跟畫面另一端的他分享一個今天的小確幸，1 句短話）"
-            ];
-            const sickPrompts = [
-                "（視訊通話中，你現在身體有點不舒服懶洋洋的，看著畫面另一端的他用 1 句軟軟虛弱的語氣跟他說話）",
-                "（視訊通話中，你抱著溫水休息，看著畫面另一端的他小聲撒嬌一句，1 句短話）"
-            ];
-
-            const pool = state.symptom === "健康" ? healthyPrompts : sickPrompts;
-            const chosen = pool[Math.floor(Math.random() * pool.length)];
-            sendChatRequest(chosen, !forceNow);
-        }
-
-        // 換皮膚 ZIP 與還原預設按鈕
-        document.getElementById('btnUploadSkin').addEventListener('click', () => {
-            skinZipInput.value = '';
-            skinZipInput.click();
-        });
-
-        skinZipInput.addEventListener('change', (e) => {
-            const file = e.target.files && e.target.files[0];
-            if (file) loadSkinFromZip(file);
-        });
-
-        document.getElementById('btnResetSkin').addEventListener('click', async () => {
-            revokeActiveBlobUrls();
-            await mountLive2DModel(DEFAULT_MODEL_URL, "預設造型");
-            showDialog("換回原本的日常造型啦～");
-        });
-
-        // 左側互動按鈕
-        document.getElementById('btnSyncDc').addEventListener('click', () => {
-            state._manual_override = false;
-            syncFromDiscord(true);
-            showDialog("已跟 DC 同步最新狀態囉！");
-        });
-
-        document.getElementById('btnCenterModel').addEventListener('click', () => {
-            centerAndScaleModel();
-        });
-
-        document.getElementById('btnRandomSymptom').addEventListener('click', () => {
-            state._manual_override = true;
-            state.symptom = state.symptom === "健康" ? "腸胃不舒服" : "健康";
-            state.reason = state.symptom === "健康" ? "恢復活力了！" : "手動測試腸胃不舒服";
-            setEmotionExpression(state.symptom === "健康" ? "開心" : "難過");
-            applyActionMotion(state.symptom === "健康" ? "happy_cheer" : "tired_unwell");
-            showDialog(state.symptom === "健康" ? "呼～恢復健康啦！" : "嗚……肚子有點不舒服……");
-        });
-
-        document.getElementById('btnCare').addEventListener('click', () => {
-            state._manual_override = true;
-            state.symptom = "健康";
-            state.reason = "吃了藥休息一下，舒服多了！";
-            setEmotionExpression("開心");
-            applyActionMotion("happy_cheer");
-            showDialog("謝謝你照顧我，休息一下好多了！");
-        });
-
-        document.getElementById('btnHappy').addEventListener('click', () => {
-            state._manual_override = true;
-            setEmotionExpression("開心");
-            applyActionMotion("happy_cheer");
-            showDialog("今天心情不錯，陪你聊一下吧！");
-        });
-
-        document.getElementById('btnSad').addEventListener('click', () => {
-            state._manual_override = true;
-            setEmotionExpression("難過");
-            applyActionMotion("tired_unwell");
-            showDialog("嗚……突然有點低落，你哄哄我嘛。");
-        });
-
-        window.addEventListener('load', async () => {
-            renderStatusPanel();
-            await syncFromDiscord(true);
-            setInterval(() => syncFromDiscord(false), 5000);
-
-            const callDot = document.getElementById('callDot');
-            const callLabel = document.getElementById('callLabel');
-            const btnToggleCall = document.getElementById('btnToggleCall');
-            const btnAutoTalk = document.getElementById('btnAutoTalk');
-            const btnTalkNow = document.getElementById('btnTalkNow');
-
-            function setAutoTalk(enable) {
-                autoTalkEnabled = enable;
-                clearInterval(autoTalkTimer);
-                if (autoTalkEnabled) {
-                    btnAutoTalk.innerText = '🎙️ 主動搭話：開';
-                    btnAutoTalk.classList.add('active');
-                    autoTalkTimer = setInterval(() => triggerProactiveVideoChat(false), 20000);
-                } else {
-                    btnAutoTalk.innerText = '🎙️ 主動搭話：關';
-                    btnAutoTalk.classList.remove('active');
-                }
-            }
-
-            btnToggleCall.addEventListener('click', () => {
-                inCallMode = !inCallMode;
-                if (inCallMode) {
-                    callDot.classList.add('live');
-                    callLabel.innerText = '視訊通話中';
-                    btnToggleCall.innerText = '📴 結束視訊';
-                    btnToggleCall.classList.add('active');
-                    centerAndScaleModel();
-                    if (!autoTalkEnabled) {
-                        setAutoTalk(true);
-                    }
-                    triggerProactiveVideoChat(true);
-                } else {
-                    callDot.classList.remove('live');
-                    callLabel.innerText = '視訊待機中';
-                    btnToggleCall.innerText = '📞 開始視訊';
-                    btnToggleCall.classList.remove('active');
-                    setAutoTalk(false);
-                }
-            });
-
-            btnAutoTalk.addEventListener('click', () => {
-                setAutoTalk(!autoTalkEnabled);
-                if (autoTalkEnabled) {
-                    showDialog("好呀，那我想到什麼就直接跟你說囉～");
-                }
-            });
-
-            btnTalkNow.addEventListener('click', () => {
-                triggerProactiveVideoChat(true);
-            });
-
-            try {
-                statusDiv.innerText = "正在初始化引擎...";
-                if (typeof PIXI === 'undefined') throw new Error("Pixi 引擎未載入");
-                window.PIXI = PIXI;
-
-                pixiApp = new PIXI.Application({
-                    view: document.createElement('canvas'),
-                    autoStart: true,
-                    resizeTo: window,
-                    backgroundAlpha: 0
-                });
-
-                pixiApp.view.style.position = 'absolute';
-                pixiApp.view.style.top = '0';
-                pixiApp.view.style.left = '0';
-                pixiApp.view.style.zIndex = '1';
-                document.body.appendChild(pixiApp.view);
-
-                await mountLive2DModel(DEFAULT_MODEL_URL, "預設造型");
-                window.addEventListener('resize', centerAndScaleModel);
-
-                pixiApp.view.addEventListener('wheel', (e) => {
-                    e.preventDefault();
-                    if (!live2dModel) return;
-                    const factor = e.deltaY < 0 ? 1.06 : 0.94;
-                    const nextScale = Math.max(0.18, Math.min(1.1, live2dModel.scale.x * factor));
-                    live2dModel.scale.set(nextScale);
-                }, { passive: false });
-
-                window.addEventListener('mousemove', (e) => {
-                    if (!live2dModel) return;
-                    live2dModel.focus(e.clientX, e.clientY);
-                });
-
-                pixiApp.ticker.add(() => {
-                    if (!live2dModel || !live2dModel.internalModel) return;
-                    const coreModel = live2dModel.internalModel.coreModel;
-                    if (!coreModel || !coreModel.getParameterIndex || !coreModel.setParameterValueByIndex) return;
-
-                    const setParam = (id, val) => {
-                        const idx = coreModel.getParameterIndex(id);
-                        if (idx !== -1) coreModel.setParameterValueByIndex(idx, val);
-                    };
-
-                    setParam("ParamMouthOpenY", mouthOpenValue);
-
-                    const t = Date.now() * 0.001;
-                    const elapsedAct = (Date.now() - actionStartedAt) * 0.001;
-                    const actActive = elapsedAct >= 0 && elapsedAct < 3.2;
-
-                    if (actActive && state.action === "happy_cheer") {
-                        setParam("ParamBodyAngleY", Math.abs(Math.sin(t * 7)) * 4);
-                        setParam("ParamAngleY", Math.sin(t * 8) * 6);
-                        setParam("ParamAngleZ", Math.sin(t * 5) * 4);
-                    } else if (actActive && state.action === "shy_tease") {
-                        setParam("ParamBodyAngleX", Math.sin(t * 4) * 5);
-                        setParam("ParamAngleZ", 8 + Math.sin(t * 3) * 2);
-                        setParam("ParamMouthForm", 0.5);
-                    } else if (actActive && state.action === "curious_think") {
-                        setParam("ParamAngleZ", -9);
-                        setParam("ParamAngleX", Math.sin(t * 2.5) * 6);
-                    } else if (state.symptom === "發燒" || state.action === "tired_unwell") {
-                        setParam("ParamBreath", 0.5 + 0.5 * Math.sin(t * 5.5));
-                        setParam("ParamAngleY", -8 + Math.sin(t * 2) * 2);
-                        setParam("ParamBodyAngleY", -4);
-                    } else if (state.symptom === "咳嗽") {
-                        const coughWave = Math.sin(t * 1.4);
-                        if (coughWave > 0.88) {
-                            setParam("ParamBodyAngleY", -4 * Math.sin(t * 28));
-                            setParam("ParamAngleY", -6 * Math.sin(t * 28));
-                        } else {
-                            setParam("ParamBodyAngleY", 0);
-                        }
-                    } else if (state.symptom === "頭痛") {
-                        setParam("ParamAngleZ", -8);
-                        setParam("ParamAngleY", -8);
-                    } else if (state.symptom === "腸胃不舒服" || state.symptom === "生理期") {
-                        setParam("ParamBodyAngleY", -6);
-                        setParam("ParamAngleY", -6);
-                    } else {
-                        setParam("ParamBreath", 0.5 + 0.5 * Math.sin(t * 2.5));
-                    }
-                });
-
-                function handleSend() {
-                    const text = userInput.value.trim();
-                    if (!text) return;
-                    userInput.value = "";
-                    sendChatRequest(text, false);
-                }
-
-                sendBtn.addEventListener('click', handleSend);
-                userInput.addEventListener('keypress', (e) => {
-                    if (e.key === 'Enter') handleSend();
-                });
-
-            } catch (error) {
-                statusDiv.innerHTML = "❌ 載入失敗: <br><span style='font-size:13px; color:#ff8080;'>" + error.message + "</span>";
-            }
-        });
-    </script>
-</body>
-</html>
+                                    const mEnt =
