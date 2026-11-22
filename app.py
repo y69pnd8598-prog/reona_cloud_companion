@@ -11,7 +11,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 API_KEY = os.environ.get("FISH_API_KEY", "").strip()
 REFERENCE_ID = os.environ.get("FISH_REFERENCE_ID", "7f92f8afb8ec43bf81429cc1c9199cb1").strip()
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "").strip()
-GROQ_MODEL = os.environ.get("GROQ_MODEL", "llama-3.1-8b-instant").strip()
+GROQ_MODEL = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile").strip()
 
 MONTHLY_CHAR_LIMIT = 7800
 VIDEO_MAX_CHARS = 180
@@ -91,11 +91,9 @@ def call_fish_tts(text, speed, out_path):
         f.write(audio_bytes)
 
 
-def call_groq_chat(prompt, system_prompt="你是台灣口語感自然的聊天伴侶 Reona／薇薇安，語氣親切自然、簡潔好聊。"):
-    if not GROQ_API_KEY:
-        raise RuntimeError("Missing GROQ_API_KEY environment variable")
+def _post_groq_with_model(model_name, prompt, system_prompt):
     payload = {
-        "model": GROQ_MODEL,
+        "model": model_name,
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": prompt},
@@ -112,13 +110,34 @@ def call_groq_chat(prompt, system_prompt="你是台灣口語感自然的聊天�
         },
         method="POST",
     )
-    try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            res_data = json.loads(resp.read().decode("utf-8"))
-        return res_data["choices"][0]["message"]["content"].strip()
-    except urllib.error.HTTPError as e:
-        detail = e.read().decode("utf-8", errors="ignore")
-        raise RuntimeError(f"Groq HTTP {e.code}: {detail}") from e
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        res_data = json.loads(resp.read().decode("utf-8"))
+    return res_data["choices"][0]["message"]["content"].strip()
+
+
+def call_groq_chat(prompt, system_prompt="你是台灣口語感自然的聊天伴侶 Reona／薇薇安，語氣親切自然、簡潔好聊。"):
+    if not GROQ_API_KEY:
+        raise RuntimeError("Missing GROQ_API_KEY environment variable")
+
+    candidates = []
+    for m in (GROQ_MODEL, "llama-3.3-70b-versatile", "llama-3.1-8b-instant", "gemma2-9b-it"):
+        m_clean = (m or "").strip()
+        if m_clean and m_clean not in candidates:
+            candidates.append(m_clean)
+
+    last_err = None
+    for idx, model_name in enumerate(candidates):
+        try:
+            return _post_groq_with_model(model_name, prompt, system_prompt)
+        except urllib.error.HTTPError as e:
+            detail = e.read().decode("utf-8", errors="ignore")
+            last_err = RuntimeError(f"Groq HTTP {e.code} ({model_name}): {detail}")
+            if e.code == 404 and "model_not_found" in detail and idx < len(candidates) - 1:
+                continue
+            raise last_err from e
+    if last_err:
+        raise last_err
+    raise RuntimeError("No available Groq model")
 
 
 class H(BaseHTTPRequestHandler):
