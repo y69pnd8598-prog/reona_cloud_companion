@@ -1,8 +1,16 @@
-import datetime, json, os, time, traceback, urllib.parse, urllib.request
-from http.server import HTTPServer, BaseHTTPRequestHandler
+import datetime
+import json
+import os
+import time
+import traceback
+import urllib.parse
+import urllib.request
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
-API_KEY = ""
-REFERENCE_ID = "7f92f8afb8ec43bf81429cc1c9199cb1"
+API_KEY = os.environ.get("FISH_API_KEY", "").strip()
+REFERENCE_ID = os.environ.get("FISH_REFERENCE_ID", "7f92f8afb8ec43bf81429cc1c9199cb1").strip()
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "").strip()
+GROQ_MODEL = os.environ.get("GROQ_MODEL", "llama-3.1-8b-instant").strip()
 
 MONTHLY_CHAR_LIMIT = 7800
 VIDEO_MAX_CHARS = 180
@@ -14,6 +22,7 @@ AUDIO_DIR = os.path.join(BASE, "wav_cache")
 QUOTA_FILE = os.path.join(BASE, "fish_quota.json")
 os.makedirs(AUDIO_DIR, exist_ok=True)
 
+
 def load_quota():
     now = datetime.datetime.now()
     ym = now.strftime("%Y-%m")
@@ -21,7 +30,8 @@ def load_quota():
     data = {"month": ym, "month_chars": 0, "day": ymd, "voice_msg_count": 0}
     if os.path.isfile(QUOTA_FILE):
         try:
-            saved = json.loads(open(QUOTA_FILE, "r", encoding="utf-8").read())
+            with open(QUOTA_FILE, "r", encoding="utf-8") as f:
+                saved = json.loads(f.read())
             if saved.get("month") == ym:
                 data["month_chars"] = int(saved.get("month_chars", 0))
             if saved.get("day") == ymd:
@@ -30,9 +40,11 @@ def load_quota():
             pass
     return data
 
+
 def save_quota(data):
     with open(QUOTA_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
+
 
 def trim_text(text, max_len):
     text = str(text or "").strip()
@@ -42,17 +54,20 @@ def trim_text(text, max_len):
     for p in ("。", "！", "？", "~", "～", "，", ","):
         idx = cut.rfind(p)
         if idx >= int(max_len * 0.5):
-            return cut[:idx + 1]
+            return cut[: idx + 1]
     return cut
 
+
 def call_fish_tts(text, speed, out_path):
+    if not API_KEY:
+        raise RuntimeError("Missing FISH_API_KEY environment variable")
     payload = {
         "text": text,
         "reference_id": REFERENCE_ID,
         "format": "mp3",
         "mp3_bitrate": 128,
         "prosody": {"speed": float(speed), "volume": 0},
-        "normalize": True
+        "normalize": True,
     }
     req = urllib.request.Request(
         "https://api.fish.audio/v1/tts",
@@ -60,14 +75,40 @@ def call_fish_tts(text, speed, out_path):
         headers={
             "Authorization": "Bearer " + API_KEY,
             "Content-Type": "application/json",
-            "model": "speech-1.6"
+            "model": "speech-1.6",
         },
-        method="POST"
+        method="POST",
     )
     with urllib.request.urlopen(req, timeout=30) as resp:
         audio_bytes = resp.read()
     with open(out_path, "wb") as f:
         f.write(audio_bytes)
+
+
+def call_groq_chat(prompt, system_prompt="你是台灣口語感自然的聊天伴侶 Reona／薇薇安，語氣親切自然、簡潔好聊。"):
+    if not GROQ_API_KEY:
+        raise RuntimeError("Missing GROQ_API_KEY environment variable")
+    payload = {
+        "model": GROQ_MODEL,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": prompt},
+        ],
+        "temperature": 0.7,
+    }
+    req = urllib.request.Request(
+        "https://api.groq.com/openai/v1/chat/completions",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Authorization": "Bearer " + GROQ_API_KEY,
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        res_data = json.loads(resp.read().decode("utf-8"))
+    return res_data["choices"][0]["message"]["content"].strip()
+
 
 class H(BaseHTTPRequestHandler):
     def _send_json(self, code_num, obj):
@@ -78,6 +119,16 @@ class H(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(raw)))
         self.end_headers()
         self.wfile.write(raw)
+
+    def _send_file(self, fpath, content_type):
+        with open(fpath, "rb") as f:
+            data = f.read()
+        self.send_response(200)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
 
     def _synth(self, txt, speed=1.0, mode="video"):
         try:
@@ -94,13 +145,13 @@ class H(BaseHTTPRequestHandler):
                 return
             fname = "reona_" + str(mode) + "_" + str(int(time.time() * 1000)) + ".mp3"
             out_path = os.path.join(AUDIO_DIR, fname)
-            print("[8889-Fish]", mode, cost, "chars:", clean_txt)
+            print("[Cloud-Fish]", mode, cost, "chars:", clean_txt)
             call_fish_tts(clean_txt, speed, out_path)
             q["month_chars"] += cost
             if is_voice:
                 q["voice_msg_count"] += 1
             save_quota(q)
-            url = "http://127.0.0.1:8889/audio/" + fname
+            url = "/audio/" + fname
             self._send_json(200, {"audio_url": url, "engine": "FishAudio", "quota": q})
         except Exception as e:
             traceback.print_exc()
@@ -108,6 +159,39 @@ class H(BaseHTTPRequestHandler):
 
     def do_GET(self):
         parsed = urllib.parse.urlparse(self.path)
+        if parsed.path in ("/", "/index.html"):
+            idx_path = os.path.join(BASE, "index.html")
+            if os.path.isfile(idx_path):
+                self._send_file(idx_path, "text/html; charset=utf-8")
+                return
+            self.send_response(404)
+            self.end_headers()
+            return
+        if parsed.path == "/pixi.min.js":
+            pixi_path = os.path.join(BASE, "pixi.min.js")
+            if os.path.isfile(pixi_path):
+                self._send_file(pixi_path, "application/javascript; charset=utf-8")
+                return
+        if parsed.path.startswith("/model/"):
+            rel_path = parsed.path[len("/model/") :]
+            safe_rel = os.path.normpath(urllib.parse.unquote(rel_path))
+            model_root = os.path.abspath(os.path.join(BASE, "model"))
+            target_path = os.path.abspath(os.path.join(model_root, safe_rel))
+            if target_path.startswith(model_root) and os.path.isfile(target_path):
+                ext = os.path.splitext(target_path)[1].lower()
+                mime_map = {
+                    ".json": "application/json; charset=utf-8",
+                    ".moc3": "application/octet-stream",
+                    ".png": "image/png",
+                    ".jpg": "image/jpeg",
+                    ".jpeg": "image/jpeg",
+                    ".webp": "image/webp",
+                }
+                self._send_file(target_path, mime_map.get(ext, "application/octet-stream"))
+                return
+            self.send_response(404)
+            self.end_headers()
+            return
         if parsed.path == "/quota":
             self._send_json(200, load_quota())
             return
@@ -115,30 +199,51 @@ class H(BaseHTTPRequestHandler):
             fname = os.path.basename(parsed.path)
             fpath = os.path.join(AUDIO_DIR, fname)
             if os.path.isfile(fpath):
-                data = open(fpath, "rb").read()
-                self.send_response(200)
-                self.send_header("Access-Control-Allow-Origin", "*")
-                self.send_header("Content-Type", "audio/mpeg")
-                self.send_header("Content-Length", str(len(data)))
-                self.end_headers()
-                self.wfile.write(data)
+                self._send_file(fpath, "audio/mpeg")
                 return
             self.send_response(404)
             self.end_headers()
             return
         q = urllib.parse.parse_qs(parsed.query)
-        self._synth(q.get("text", ["哈囉"])[0], float(q.get("speed", ["1.0"])[0]), q.get("mode", ["video"])[0])
+        if "text" not in q and parsed.path == "/tts":
+            self._send_json(200, {"status": "ok"})
+            return
+        self._synth(
+            q.get("text", ["哈囉"])[0],
+            float(q.get("speed", ["1.0"])[0]),
+            q.get("mode", ["video"])[0],
+        )
 
     def do_POST(self):
+        parsed = urllib.parse.urlparse(self.path)
         length = int(self.headers.get("Content-Length", 0))
         raw = self.rfile.read(length).decode("utf-8", errors="ignore")
         try:
-            body = json.loads(raw)
-            txt = body.get("text") or body.get("msg") or body.get("content") or "哈囉"
-            speed = float(body.get("speed", 1.0))
-            mode = body.get("mode", "video")
+            body = json.loads(raw) if raw else {}
         except Exception:
-            txt, speed, mode = raw or "哈囉", 1.0, "video"
+            body = {}
+
+        if parsed.path == "/chat":
+            try:
+                user_msg = (
+                    body.get("message")
+                    or body.get("text")
+                    or body.get("msg")
+                    or body.get("content")
+                    or raw
+                    or "哈囉"
+                )
+                sys_prompt = body.get("system_prompt") or "你是台灣口語感自然的聊天伴侶 Reona／薇薇安，語氣親切自然、簡潔好聊。"
+                reply = call_groq_chat(str(user_msg), str(sys_prompt))
+                self._send_json(200, {"reply": reply, "text": reply})
+            except Exception as e:
+                traceback.print_exc()
+                self._send_json(500, {"error": str(e)})
+            return
+
+        txt = body.get("text") or body.get("msg") or body.get("content") or raw or "哈囉"
+        speed = float(body.get("speed", 1.0))
+        mode = body.get("mode", "video")
         self._synth(txt, speed, mode)
 
     def do_OPTIONS(self):
@@ -151,5 +256,8 @@ class H(BaseHTTPRequestHandler):
     def log_message(self, *a):
         pass
 
-print("8889 FishAudio TTS running on http://127.0.0.1:8889")
-HTTPServer(("127.0.0.1", 8889), H).serve_forever()
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 10000))
+    print(f"Cloud companion running on 0.0.0.0:{port}")
+    HTTPServer(("0.0.0.0", port), H).serve_forever()
