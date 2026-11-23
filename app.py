@@ -23,6 +23,9 @@ FISH_MODEL_ID = os.getenv("FISH_MODEL_ID", "7f92f8afb8ec43bf81429cc1c9199cb1").s
 DISCORD_BOT_TOKEN = (os.getenv("DISCORD_BOT_TOKEN") or os.getenv("DISCORD_TOKEN") or "").strip()
 DISCORD_CHANNEL_ID = (os.getenv("DISCORD_CHANNEL_ID") or "").strip()
 
+DAILY_TTS_CHAR_LIMIT = 250
+MONTHLY_TTS_CHAR_LIMIT = 8000
+
 TEXT_MODELS = [
     os.getenv("GROQ_TEXT_MODEL", "").strip(),
     "openai/gpt-oss-20b",
@@ -79,7 +82,7 @@ LIFE_MINOR_INCIDENTS = [
 ]
 
 # =========================================================
-# 3. Persistent State & Memory
+# 3. Persistent State, TTS Quota & Memory
 # =========================================================
 DEFAULT_MEMORY = {
     "recent_turns": [],
@@ -99,6 +102,12 @@ DEFAULT_MEMORY = {
     "need_mild_recovery_report": False,
     "current_activity": "在雪梨咖啡廳邊曬太陽邊畫插畫",
     "last_dc_sync_at": "",
+    "tts_quota": {
+        "day_key": "",
+        "day_chars": 0,
+        "month_key": "",
+        "month_chars": 0,
+    },
 }
 
 
@@ -133,6 +142,46 @@ def save_memory(mem: dict) -> None:
 
 
 memory = load_memory()
+
+
+def sync_tts_quota_period(now_dt: datetime) -> dict:
+    day_key = now_dt.strftime("%Y-%m-%d")
+    month_key = now_dt.strftime("%Y-%m")
+    q = memory.setdefault("tts_quota", {})
+    changed = False
+    if q.get("day_key") != day_key:
+        q["day_key"] = day_key
+        q["day_chars"] = 0
+        changed = True
+    if q.get("month_key") != month_key:
+        q["month_key"] = month_key
+        q["month_chars"] = 0
+        changed = True
+    if changed:
+        save_memory(memory)
+    return q
+
+
+def get_tts_quota_info(now_dt: datetime | None = None) -> dict:
+    if now_dt is None:
+        now_dt = datetime.now(SYDNEY_TZ)
+    q = sync_tts_quota_period(now_dt)
+    day_used = int(q.get("day_chars", 0))
+    month_used = int(q.get("month_chars", 0))
+    day_rem = max(0, DAILY_TTS_CHAR_LIMIT - day_used)
+    month_rem = max(0, MONTHLY_TTS_CHAR_LIMIT - month_used)
+    available_today = min(day_rem, month_rem)
+    return {
+        "configured": bool(FISH_API_KEY),
+        "day_used": day_used,
+        "day_limit": DAILY_TTS_CHAR_LIMIT,
+        "day_remaining": day_rem,
+        "month_used": month_used,
+        "month_limit": MONTHLY_TTS_CHAR_LIMIT,
+        "month_remaining": month_rem,
+        "available_today": available_today,
+        "exhausted": available_today <= 0,
+    }
 
 
 def get_cycle_day_num(now_dt: datetime) -> int:
@@ -204,13 +253,15 @@ def get_status_snapshot() -> dict:
         "activity": memory.get("current_activity", "在雪梨咖啡廳邊曬太陽邊畫插畫"),
         "model_loaded": bool(model_rel_path),
         "model_url": f"/model/{model_rel_path}" if model_rel_path else "",
+        "model_name": Path(model_rel_path).name if model_rel_path else "",
         "dc_configured": bool(DISCORD_BOT_TOKEN and DISCORD_CHANNEL_ID),
         "last_dc_sync_at": memory.get("last_dc_sync_at", ""),
+        "tts_quota": get_tts_quota_info(now_dt),
     }
 
 
 # =========================================================
-# 4. Persona Prompt & Output Filtering
+# 4. Persona Prompt, Output Filtering & Quota-Guarded TTS
 # =========================================================
 BAD_CHAR_RE = re.compile(r"[\u3040-\u309f\u30a0-\u30ff姎懓懞擝奼懅鼉齾玈尞攟臙屴尛沝炋朰攴攕襾]")
 SIMPLIFIED_RE = re.compile(r"[没这么还说觉点个样对欢会时间里边着过为发来动亲宝怎么给让]")
@@ -264,12 +315,13 @@ def build_system_prompt(now_dt: datetime) -> str:
         "你是 Reona，跟 Nick 穩定交往的遠距離女友。你獨自在澳洲雪梨生活，是自由接案插畫師，養一隻奶油白短腿貓「麻糬」，挑食不吃香菜跟紅蘿蔔。你很瘦（40公斤）、皮膚白、臉也好看，對外貌有從容的自信；你也知道 Nick 身高 180 公分、體重 67 公斤（偏瘦高挑）、皮膚微黑，跟你站在一起剛好是黑白配跟身高差。\n"
         "【生活與個性底色：開朗溫柔的台灣女生、有狀況第一時間依賴 Nick】你是一個情緒價值高、很懂得享受雪梨生活的台灣女生：平常接案畫圖之餘，喜歡出門曬太陽、找採光好的咖啡廳畫稿、逛週末市集買花、去海邊散步看夕陽、吃早午餐跟甜點，回家喜歡點香氛蠟燭跟麻糬玩。一旦在外面吃壞肚子、肚子痛、生理期不適，或是遇到改稿委屈、淋雨等突發小狀況，你都會第一時間主動告訴 Nick、軟軟討拍或報備，好轉後也會主動跟他說一聲讓他放心。\n"
         "【說話風格：超級道地的『台灣女生傳 LINE 口吻』（務必嚴格遵守）】\n"
-        "1. 像真正在台灣長大的女生傳 LINE 跟男友聊天：短句自然斷開，常常用空格代替逗號，自然帶出「欸、啦、喔、嘛、真的假的、好好笑、好喔、超讚、超扯、好煩喔、哭啊、對啊」這類台灣日常口頭禪！避免太書面的文案詞彙。\n"
-        "2. 嚴禁簡體字、日文假名、生僻字、中國/翻譯腔用詞或任何冒號前綴。\n"
-        "3. 嚴禁第三人稱自稱：如果 Nick 喊你「寶貝」或「老婆」，那是他在叫你，你回答時絕對不能用「寶貝剛吃藥」這種第三人稱自稱自己！一律用「我」或直接省略主詞。\n"
-        "4. 嚴禁重複背原因與複讀同一句：如果對話紀錄裡已經提過不舒服的原因，後面 Nick 再關心你時，絕對不要再把原因重講一遍，只要自然回答當下感受即可。\n"
-        "5. 徹底禁演言情小說與假肉麻：禁止「暖暖的抱抱」、「透過螢幕」這類旁白腔。\n"
-        "6. 句子長度與連發節奏：一次只輸出 8～32 字的自然短話，不要寫長文、不要句號結尾。若想拆成兩則連續傳訊，可用單一 `||` 隔開兩段短句，最多兩段。\n"
+        "1. 不管 Nick 用中文、英文還是中英夾雜跟你說話，你一律用繁體中文＋道地台灣女生口語自然回覆，不要切換成英文回話。\n"
+        "2. 像真正在台灣長大的女生傳 LINE 跟男友聊天：短句自然斷開，常常用空格代替逗號，自然帶出「欸、啦、喔、嘛、真的假的、好好笑、好喔、超讚、超扯、好煩喔、哭啊、對啊」這類台灣日常口頭禪！避免太書面的文案詞彙。\n"
+        "3. 嚴禁簡體字、日文假名、生僻字、中國/翻譯腔用詞或任何冒號前綴。\n"
+        "4. 嚴禁第三人稱自稱：如果 Nick 喊你「寶貝」或「老婆」，那是他在叫你，你回答時絕對不能用「寶貝剛吃藥」這種第三人稱自稱自己！一律用「我」或直接省略主詞。\n"
+        "5. 嚴禁重複背原因與複讀同一句：如果對話紀錄裡已經提過不舒服的原因，後面 Nick 再關心你時，絕對不要再把原因重講一遍，只要自然回答當下感受即可。\n"
+        "6. 徹底禁演言情小說與假肉麻：禁止「暖暖的抱抱」、「透過螢幕」這類旁白腔。\n"
+        "7. 句子長度與連發節奏：一次只輸出 8～32 字的自然短話，不要寫長文、不要句號結尾。若想拆成兩則連續傳訊，可用單一 `||` 隔開兩段短句，最多兩段。\n"
         f"【當下狀態】雪梨 {now_dt.strftime('%m/%d')}（{weekday_zh}）{now_dt.strftime('%H:%M')}｜{time_mood}｜{cycle_note}\n"
         f"【近期生活備忘】\n{notes_block}\n"
         f"【近期對話紀錄】\n{history_block}"
@@ -312,10 +364,21 @@ def call_groq_chat(sys_prompt: str, user_prompt: str) -> str:
     return ""
 
 
-def synthesize_fish_audio(text: str) -> str:
+def synthesize_fish_audio(text: str) -> tuple[str, str]:
+    now_dt = datetime.now(SYDNEY_TZ)
+    q_info = get_tts_quota_info(now_dt)
     if not FISH_API_KEY or not text:
-        return ""
-    clean_speech = text.replace("||", "，")
+        return "", ""
+    if q_info["exhausted"]:
+        return "", "今日語音已達 250 字上限，已改以純文字回覆"
+
+    speech_text = re.sub(r"\s+", " ", text.replace("||", "，")).strip()
+    char_count = len(speech_text)
+    if char_count <= 0:
+        return "", ""
+    if char_count > q_info["available_today"]:
+        return "", f"剩餘語音字數不足（剩 {q_info['available_today']} 字），已改以純文字回覆"
+
     try:
         resp = requests.post(
             "https://api.fish.audio/v1/tts",
@@ -324,27 +387,32 @@ def synthesize_fish_audio(text: str) -> str:
                 "Content-Type": "application/json",
             },
             json={
-                "text": clean_speech,
+                "text": speech_text,
                 "reference_id": FISH_MODEL_ID,
                 "format": "mp3",
             },
             timeout=20,
         )
         if resp.status_code == 200 and resp.content:
+            q = sync_tts_quota_period(now_dt)
+            q["day_chars"] = int(q.get("day_chars", 0)) + char_count
+            q["month_chars"] = int(q.get("month_chars", 0)) + char_count
+            save_memory(memory)
+
             fname = f"tts_{int(time.time() * 1000)}.mp3"
             out_path = AUDIO_DIR / fname
             out_path.write_bytes(resp.content)
             files = sorted(AUDIO_DIR.glob("tts_*.mp3"), key=lambda p: p.stat().st_mtime)
             for old in files[:-15]:
                 old.unlink(missing_ok=True)
-            return f"/audio/{fname}"
+            return f"/audio/{fname}", ""
     except Exception as err:
         print(f"[Fish TTS Error] {err}", flush=True)
-    return ""
+    return "", ""
 
 
 # =========================================================
-# 5. Discord Sync Helpers
+# 5. Bidirectional Discord Sync Helpers
 # =========================================================
 def merge_turns_into_memory(new_turns: list[str]) -> list[str]:
     existing = memory.get("recent_turns", [])
@@ -358,9 +426,30 @@ def merge_turns_into_memory(new_turns: list[str]) -> list[str]:
     return memory["recent_turns"]
 
 
+def push_message_to_discord(text: str, speaker_prefix: str = "") -> bool:
+    if not DISCORD_BOT_TOKEN or not DISCORD_CHANNEL_ID or not text:
+        return False
+    content = f"{speaker_prefix}{text}".strip()[:1900]
+    url = f"https://discord.com/api/v10/channels/{DISCORD_CHANNEL_ID}/messages"
+    try:
+        resp = requests.post(
+            url,
+            headers={
+                "Authorization": f"Bot {DISCORD_BOT_TOKEN}",
+                "Content-Type": "application/json",
+            },
+            json={"content": content},
+            timeout=12,
+        )
+        return resp.status_code in (200, 201)
+    except Exception as err:
+        print(f"[DC Push Error] {err}", flush=True)
+        return False
+
+
 def fetch_discord_channel_turns(limit: int = 20) -> tuple[bool, list[dict], str]:
     if not DISCORD_BOT_TOKEN or not DISCORD_CHANNEL_ID:
-        return False, [], "尚未設定 DISCORD_BOT_TOKEN 或 DISCORD_CHANNEL_ID（仍可使用貼上 DC 對話同步）"
+        return False, [], "尚未設定 DISCORD_BOT_TOKEN 或 DISCORD_CHANNEL_ID（仍可用手動貼上同步）"
 
     url = f"https://discord.com/api/v10/channels/{DISCORD_CHANNEL_ID}/messages?limit={min(max(limit, 1), 50)}"
     try:
@@ -388,7 +477,7 @@ def fetch_discord_channel_turns(limit: int = 20) -> tuple[bool, list[dict], str]
             is_bot = bool(author.get("bot"))
             sender = "reona" if is_bot else "nick"
             label = "你" if is_bot else "Nick"
-            items.append({"sender": sender, "text": content})
+            items.append({"id": str(m.get("id", "")), "sender": sender, "text": content})
             turns.append(f"{label}：{content}")
 
         merge_turns_into_memory(turns)
@@ -475,7 +564,7 @@ def upload_model():
     if not rel_path:
         return jsonify({
             "ok": False,
-            "error": "ZIP 已解壓，但裡面找不到 .model3.json 檔案（聊天功能仍可正常使用）",
+            "error": "ZIP 已解壓，但找不到 .model3.json（聊天功能仍正常）",
         }), 200
 
     return jsonify({
@@ -536,7 +625,7 @@ def sync_dc():
         return jsonify({
             "ok": True,
             "messages": items,
-            "message": f"已匯入 {len(items)} 則 DC 對話並同步記憶",
+            "message": f"已匯入 {len(items)} 則 DC 對話",
             "status": get_status_snapshot(),
         })
 
@@ -554,6 +643,7 @@ def chat():
     data = request.get_json(silent=True) or {}
     user_text = (data.get("message") or data.get("text") or "").strip()
     want_voice = bool(data.get("voice", False))
+    sync_to_dc = bool(data.get("sync_to_dc", False))
     if not user_text:
         return jsonify({"ok": False, "error": "訊息不能為空"}), 400
 
@@ -582,12 +672,22 @@ def chat():
     memory["recent_turns"] = turns[-HISTORY_LIMIT:]
     save_memory(memory)
 
-    audio_url = synthesize_fish_audio(reply) if want_voice else ""
+    dc_pushed = False
+    if sync_to_dc:
+        push_message_to_discord(user_text, "Nick：")
+        for line in reply.split("||"):
+            clean_line = line.strip()
+            if clean_line:
+                dc_pushed = push_message_to_discord(clean_line, "Reona：") or dc_pushed
+
+    audio_url, tts_note = synthesize_fish_audio(reply) if want_voice else ("", "")
     st = get_status_snapshot()
     return jsonify({
         "ok": True,
         "reply": reply,
         "audio_url": audio_url,
+        "tts_note": tts_note,
+        "dc_pushed": dc_pushed,
         "emotion": st["emotion"],
         "status": st,
     })
@@ -598,6 +698,7 @@ def proactive():
     data = request.get_json(silent=True) or {}
     mode = (data.get("mode") or "auto").strip()
     want_voice = bool(data.get("voice", False))
+    sync_to_dc = bool(data.get("sync_to_dc", False))
 
     now_dt = datetime.now(SYDNEY_TZ)
     now_ts = now_dt.timestamp()
@@ -656,12 +757,21 @@ def proactive():
     memory["recent_turns"] = turns[-HISTORY_LIMIT:]
     save_memory(memory)
 
-    audio_url = synthesize_fish_audio(reply) if want_voice else ""
+    dc_pushed = False
+    if sync_to_dc:
+        for line in reply.split("||"):
+            clean_line = line.strip()
+            if clean_line:
+                dc_pushed = push_message_to_discord(clean_line, "Reona：") or dc_pushed
+
+    audio_url, tts_note = synthesize_fish_audio(reply) if want_voice else ("", "")
     st = get_status_snapshot()
     return jsonify({
         "ok": True,
         "reply": reply,
         "audio_url": audio_url,
+        "tts_note": tts_note,
+        "dc_pushed": dc_pushed,
         "emotion": st["emotion"],
         "status": st,
     })
