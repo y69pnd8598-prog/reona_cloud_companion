@@ -20,6 +20,9 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
 FISH_API_KEY = os.getenv("FISH_API_KEY", "").strip()
 FISH_MODEL_ID = os.getenv("FISH_MODEL_ID", "7f92f8afb8ec43bf81429cc1c9199cb1").strip()
 
+DISCORD_BOT_TOKEN = (os.getenv("DISCORD_BOT_TOKEN") or os.getenv("DISCORD_TOKEN") or "").strip()
+DISCORD_CHANNEL_ID = (os.getenv("DISCORD_CHANNEL_ID") or "").strip()
+
 TEXT_MODELS = [
     os.getenv("GROQ_TEXT_MODEL", "").strip(),
     "openai/gpt-oss-20b",
@@ -95,6 +98,7 @@ DEFAULT_MEMORY = {
     "mild_reason": "",      # "food_poisoning" or "bloating"
     "need_mild_recovery_report": False,
     "current_activity": "在雪梨咖啡廳邊曬太陽邊畫插畫",
+    "last_dc_sync_at": "",
 }
 
 
@@ -200,6 +204,8 @@ def get_status_snapshot() -> dict:
         "activity": memory.get("current_activity", "在雪梨咖啡廳邊曬太陽邊畫插畫"),
         "model_loaded": bool(model_rel_path),
         "model_url": f"/model/{model_rel_path}" if model_rel_path else "",
+        "dc_configured": bool(DISCORD_BOT_TOKEN and DISCORD_CHANNEL_ID),
+        "last_dc_sync_at": memory.get("last_dc_sync_at", ""),
     }
 
 
@@ -328,7 +334,6 @@ def synthesize_fish_audio(text: str) -> str:
             fname = f"tts_{int(time.time() * 1000)}.mp3"
             out_path = AUDIO_DIR / fname
             out_path.write_bytes(resp.content)
-            # Cleanup old audio files
             files = sorted(AUDIO_DIR.glob("tts_*.mp3"), key=lambda p: p.stat().st_mtime)
             for old in files[:-15]:
                 old.unlink(missing_ok=True)
@@ -339,7 +344,88 @@ def synthesize_fish_audio(text: str) -> str:
 
 
 # =========================================================
-# 5. Server-Side ZIP Model Extraction
+# 5. Discord Sync Helpers
+# =========================================================
+def merge_turns_into_memory(new_turns: list[str]) -> list[str]:
+    existing = memory.get("recent_turns", [])
+    combined = list(existing)
+    for t in new_turns:
+        clean_t = t.strip()
+        if clean_t and clean_t not in combined[-HISTORY_LIMIT:]:
+            combined.append(clean_t)
+    memory["recent_turns"] = combined[-HISTORY_LIMIT:]
+    save_memory(memory)
+    return memory["recent_turns"]
+
+
+def fetch_discord_channel_turns(limit: int = 20) -> tuple[bool, list[dict], str]:
+    if not DISCORD_BOT_TOKEN or not DISCORD_CHANNEL_ID:
+        return False, [], "尚未設定 DISCORD_BOT_TOKEN 或 DISCORD_CHANNEL_ID（仍可使用貼上 DC 對話同步）"
+
+    url = f"https://discord.com/api/v10/channels/{DISCORD_CHANNEL_ID}/messages?limit={min(max(limit, 1), 50)}"
+    try:
+        resp = requests.get(
+            url,
+            headers={"Authorization": f"Bot {DISCORD_BOT_TOKEN}"},
+            timeout=15,
+        )
+        if resp.status_code != 200:
+            return False, [], f"Discord 讀取失敗（HTTP {resp.status_code}）"
+
+        raw_msgs = resp.json()
+        if not isinstance(raw_msgs, list):
+            return False, [], "Discord 回傳格式異常"
+
+        items = []
+        turns = []
+        for m in reversed(raw_msgs):
+            content = (m.get("content") or "").strip()
+            if not content and m.get("attachments"):
+                content = "[傳了一張照片]"
+            if not content or content.startswith("`[Reona 狀態]") or content in ("!狀態", "狀態", "/status"):
+                continue
+            author = m.get("author") or {}
+            is_bot = bool(author.get("bot"))
+            sender = "reona" if is_bot else "nick"
+            label = "你" if is_bot else "Nick"
+            items.append({"sender": sender, "text": content})
+            turns.append(f"{label}：{content}")
+
+        merge_turns_into_memory(turns)
+        now_dt = datetime.now(SYDNEY_TZ)
+        memory["last_dc_sync_at"] = now_dt.strftime("%H:%M:%S")
+        save_memory(memory)
+        return True, items, f"已同步 {len(items)} 則 DC 訊息"
+    except Exception as err:
+        return False, [], f"同步 DC 發生錯誤：{err}"
+
+
+def parse_pasted_dc_text(raw_text: str) -> tuple[list[dict], list[str]]:
+    items = []
+    turns = []
+    for line in (raw_text or "").splitlines():
+        s = line.strip()
+        if not s:
+            continue
+        if s.startswith(("Nick：", "Nick:", "你：", "你:", "reona：", "reona:", "Reona：", "Reona:")):
+            prefix, rest = re.split(r"[:：]", s, maxsplit=1)
+            body = rest.strip()
+            if not body:
+                continue
+            if prefix.strip().lower() in ("reona", "你"):
+                items.append({"sender": "reona", "text": body})
+                turns.append(f"你：{body}")
+            else:
+                items.append({"sender": "nick", "text": body})
+                turns.append(f"Nick：{body}")
+        else:
+            items.append({"sender": "reona", "text": s})
+            turns.append(f"你：{s}")
+    return items, turns
+
+
+# =========================================================
+# 6. Server-Side ZIP Model Extraction
 # =========================================================
 def find_uploaded_model_rel_path() -> str:
     if not UPLOAD_MODEL_DIR.exists():
@@ -359,7 +445,6 @@ def upload_model():
     if not f.filename or not f.filename.lower().endswith(".zip"):
         return jsonify({"ok": False, "error": "請上傳 .zip 格式的角色壓縮檔"}), 400
 
-    # Clear previous uploaded model cleanly
     if UPLOAD_MODEL_DIR.exists():
         shutil.rmtree(UPLOAD_MODEL_DIR, ignore_errors=True)
     UPLOAD_MODEL_DIR.mkdir(parents=True, exist_ok=True)
@@ -411,7 +496,7 @@ def serve_audio_file(filename: str):
 
 
 # =========================================================
-# 6. Chat, Proactive Events & Diagnostics Routes
+# 7. Chat, Proactive Events, DC Sync & Diagnostics Routes
 # =========================================================
 @app.get("/")
 def index():
@@ -431,7 +516,35 @@ def health():
         "groq_key_set": bool(GROQ_API_KEY),
         "groq_key_prefix": GROQ_API_KEY[:6] + "..." if GROQ_API_KEY else "",
         "fish_key_set": bool(FISH_API_KEY),
+        "dc_configured": bool(DISCORD_BOT_TOKEN and DISCORD_CHANNEL_ID),
         "models": TEXT_MODELS,
+        "status": get_status_snapshot(),
+    })
+
+
+@app.route("/sync_dc", methods=["GET", "POST"])
+def sync_dc():
+    data = request.get_json(silent=True) or {}
+    pasted = (data.get("text") or data.get("transcript") or "").strip()
+
+    if pasted:
+        items, turns = parse_pasted_dc_text(pasted)
+        merge_turns_into_memory(turns)
+        now_dt = datetime.now(SYDNEY_TZ)
+        memory["last_dc_sync_at"] = now_dt.strftime("%H:%M:%S")
+        save_memory(memory)
+        return jsonify({
+            "ok": True,
+            "messages": items,
+            "message": f"已匯入 {len(items)} 則 DC 對話並同步記憶",
+            "status": get_status_snapshot(),
+        })
+
+    ok, items, msg = fetch_discord_channel_turns(limit=20)
+    return jsonify({
+        "ok": ok,
+        "messages": items,
+        "message": msg,
         "status": get_status_snapshot(),
     })
 
@@ -447,7 +560,6 @@ def chat():
     now_dt = datetime.now(SYDNEY_TZ)
     now_ts = now_dt.timestamp()
 
-    # Record notable life memos
     if any(k in user_text for k in ["考試", "上班", "下班", "去看醫生", "生病", "頭痛", "累", "週末", "作業", "報告"]):
         note = f"[{now_dt.strftime('%m/%d')}] Nick 提到：{user_text[:36]}"
         memory.setdefault("long_term_notes", []).append(note)
@@ -484,7 +596,7 @@ def chat():
 @app.post("/proactive")
 def proactive():
     data = request.get_json(silent=True) or {}
-    mode = (data.get("mode") or "auto").strip()  # "auto" | "incident" | "chit_chat" | "recover"
+    mode = (data.get("mode") or "auto").strip()
     want_voice = bool(data.get("voice", False))
 
     now_dt = datetime.now(SYDNEY_TZ)
