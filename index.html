@@ -9,31 +9,46 @@
   <script src="https://cdn.jsdelivr.net/npm/pixi-live2d-display@0.4.0/dist/cubism4.min.js"></script>
   <style>
     * { box-sizing: border-box; }
-    body {
+    html, body {
       margin: 0;
-      padding: 16px;
+      padding: 0;
+      height: 100%;
       font-family: -apple-system, BlinkMacSystemFont, "PingFang TC", "Microsoft JhengHei", sans-serif;
-      background: #11141c;
-      color: #f3f5f8;
+      background: #10131b;
+      color: #f3f5f9;
     }
-    .wrap {
-      max-width: 960px;
-      margin: 0 auto;
+    .app-shell {
       display: grid;
-      gap: 14px;
+      grid-template-columns: minmax(380px, 440px) 1fr;
+      height: 100vh;
+      width: 100%;
+      overflow: hidden;
     }
-    .card {
-      background: #1a1f2c;
-      border: 1px solid #2c3448;
-      border-radius: 12px;
+    @media (max-width: 900px) {
+      html, body { height: auto; overflow: auto; }
+      .app-shell {
+        grid-template-columns: 1fr;
+        height: auto;
+        overflow: visible;
+      }
+      .left-col { border-right: none !important; border-bottom: 1px solid #283044; }
+    }
+    .left-col {
+      background: #161b26;
+      border-right: 1px solid #283044;
       padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      overflow-y: auto;
     }
     .stage {
       width: 100%;
-      height: 460px;
-      background: #11141c;
-      border: 1px solid #262e40;
-      border-radius: 10px;
+      height: 430px;
+      min-height: 360px;
+      background: radial-gradient(circle at 50% 35%, #232a3c, #0f131b);
+      border: 1px solid #2a3348;
+      border-radius: 12px;
       overflow: hidden;
       position: relative;
       display: flex;
@@ -51,136 +66,296 @@
       padding: 12px;
       text-align: center;
     }
+    .status-box {
+      background: #1e2534;
+      border: 1px solid #2d374d;
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 13px;
+      line-height: 1.55;
+      display: grid;
+      gap: 4px;
+    }
+    .muted { color: #9aa5bc; font-size: 12px; line-height: 1.45; }
     .row {
       display: flex;
       flex-wrap: wrap;
-      gap: 8px;
+      gap: 6px;
       align-items: center;
-      margin-top: 8px;
     }
     button {
-      padding: 9px 14px;
+      padding: 8px 11px;
       border-radius: 8px;
-      border: 1px solid #3c4763;
-      background: #252d40;
-      color: #fff;
-      font-size: 14px;
+      border: 1px solid #39445e;
+      background: #232b3e;
+      color: #f3f5f9;
+      font-size: 13px;
       cursor: pointer;
     }
-    button:hover { background: #313c54; }
+    button:hover { background: #2e3850; }
     button.primary {
       background: #e85d88;
       border-color: #e85d88;
+      color: #fff;
       font-weight: 600;
     }
-    input[type="text"] {
-      flex: 1;
-      min-width: 200px;
-      padding: 10px 12px;
-      border-radius: 8px;
-      border: 1px solid #3c4763;
-      background: #11141c;
-      color: #fff;
-      font-size: 14px;
+    button.small { padding: 5px 9px; font-size: 12px; }
+    input[type="file"] {
+      max-width: 195px;
+      font-size: 12px;
+      color: #b7c2d6;
     }
+    textarea {
+      width: 100%;
+      min-height: 76px;
+      resize: vertical;
+      border-radius: 8px;
+      border: 1px solid #39445e;
+      background: #10131b;
+      color: #fff;
+      padding: 8px 10px;
+      font-size: 13px;
+      font-family: inherit;
+    }
+
+    .right-col {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      min-height: 520px;
+      background: #10131b;
+    }
+    .top-bar {
+      padding: 10px 16px;
+      background: #161b26;
+      border-bottom: 1px solid #283044;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+    .toggles {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      font-size: 13px;
+      color: #cbd5e6;
+    }
+    .toggles label { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
     .chat-box {
-      height: 300px;
+      flex: 1;
       overflow-y: auto;
+      padding: 16px;
       display: flex;
       flex-direction: column;
       gap: 10px;
-      padding: 10px;
-      background: #11141c;
-      border-radius: 8px;
-      border: 1px solid #262e40;
     }
     .msg {
-      max-width: 80%;
-      padding: 9px 12px;
-      border-radius: 10px;
-      line-height: 1.5;
+      max-width: 78%;
+      padding: 10px 13px;
+      border-radius: 12px;
+      line-height: 1.55;
+      font-size: 14px;
+      word-break: break-word;
+    }
+    .msg.nick {
+      align-self: flex-end;
+      background: #e85d88;
+      color: #fff;
+      border-bottom-right-radius: 4px;
+    }
+    .msg.reona {
+      align-self: flex-start;
+      background: #1e2534;
+      border: 1px solid #2e3850;
+      color: #f3f5f9;
+      border-bottom-left-radius: 4px;
+    }
+    .composer {
+      padding: 10px 14px;
+      background: #161b26;
+      border-top: 1px solid #283044;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .input-line { display: flex; gap: 8px; }
+    input[type="text"] {
+      flex: 1;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid #39445e;
+      background: #10131b;
+      color: #fff;
       font-size: 14px;
     }
-    .msg.nick { align-self: flex-end; background: #e85d88; color: #fff; }
-    .msg.reona { align-self: flex-start; background: #252d40; color: #f3f5f8; }
-    .msg.tip { align-self: center; color: #9aa5bc; font-size: 12px; background: transparent; }
-    .muted { color: #9aa5bc; font-size: 13px; }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="card">
+  <div class="app-shell">
+    <!-- 左欄：固定角色視線區、狀態、ZIP 與縮放 -->
+    <div class="left-col">
       <div class="stage" id="stage">
         <canvas id="live2d-canvas"></canvas>
-        <div class="stage-note" id="stage-note">尚未顯示角色模型（上傳含 .model3.json 的 ZIP 後會嘗試顯示在此）</div>
+        <div class="stage-note" id="stage-note">尚未載入角色模型（不影響聊天，上傳含 .model3.json 的 ZIP 可顯示）</div>
       </div>
 
-      <div class="muted" id="status-text" style="margin-top:10px;">雪梨時間：讀取中｜狀態：讀取中</div>
+      <div class="row">
+        <button type="button" class="small" id="zoom-in-btn">放大角色</button>
+        <button type="button" class="small" id="zoom-out-btn">縮小角色</button>
+        <button type="button" class="small" id="zoom-reset-btn">重設比例</button>
+        <button type="button" class="small" id="replay-voice-btn">重播最後語音</button>
+      </div>
+
+      <div class="status-box" id="status-box">
+        <div id="st-time">雪梨時間：讀取中...</div>
+        <div id="st-cond">身體狀態：讀取中...</div>
+        <div id="st-act">目前動態：讀取中...</div>
+        <div class="muted" id="st-quota">今日語音：0 / 250 字（本月 0 / 8,000 字）</div>
+        <div class="muted" id="st-dc">DC 同步：檢查中...</div>
+      </div>
+
       <div class="row">
         <input type="file" id="zip-file" accept=".zip" />
-        <button type="button" id="upload-zip-btn">上傳角色 ZIP</button>
-        <span class="muted" id="zip-result">尚未上傳角色 ZIP（不影響聊天）</span>
+        <button type="button" class="small" id="upload-zip-btn">上傳 ZIP</button>
       </div>
-      <div class="row">
-        <button type="button" class="primary" id="proactive-auto-btn">讓她主動找我</button>
-        <button type="button" id="proactive-inc-btn">模擬有狀況／吃壞肚子</button>
-        <button type="button" id="proactive-chat-btn">分享生活瑣事</button>
-        <button type="button" id="proactive-rec-btn">好轉報平安</button>
-      </div>
+      <div class="muted" id="zip-tip">尚未上傳角色 ZIP</div>
     </div>
 
-    <div class="card">
-      <div class="chat-box" id="chat-box">
-        <div class="msg tip">已就緒，可以直接輸入訊息或按上方按鈕互動</div>
+    <!-- 右欄：獨立聊天視窗、DC 同步與互動按鈕 -->
+    <div class="right-col">
+      <div class="top-bar">
+        <strong>Reona 陪伴聊天室</strong>
+        <div class="toggles">
+          <label><input type="checkbox" id="voice-enabled" checked /> 語音（每日 250 字上限）</label>
+          <label><input type="checkbox" id="auto-dc-sync" checked /> 自動同步 DC</label>
+          <label><input type="checkbox" id="push-to-dc" /> 同步發送到 DC</label>
+        </div>
       </div>
-      <form class="row" id="chat-form">
-        <input type="text" id="chat-input" placeholder="跟 Reona 說點什麼..." autocomplete="off" />
-        <button type="submit" class="primary" id="send-btn">傳送</button>
-      </form>
+
+      <div class="chat-box" id="chat-box"></div>
+
+      <div id="dc-paste-box" style="display:none; padding: 0 14px 8px; background: #161b26;">
+        <textarea id="dc-paste-text" placeholder="貼上 DC 對話紀錄（每行一則，例如 Nick：... 或 Reona：...）"></textarea>
+        <div class="row" style="margin-top:6px;">
+          <button type="button" class="small primary" id="apply-paste-btn">匯入貼上紀錄</button>
+          <button type="button" class="small" id="close-paste-btn">收合</button>
+        </div>
+      </div>
+
+      <div class="composer">
+        <div class="row">
+          <button type="button" class="small primary" id="btn-proactive-auto">讓她主動找我</button>
+          <button type="button" class="small" id="btn-incident">模擬有狀況／吃壞肚子</button>
+          <button type="button" class="small" id="btn-chitchat">分享生活瑣事</button>
+          <button type="button" class="small" id="btn-recover">好轉報平安</button>
+          <button type="button" class="small" id="btn-sync-dc">立即同步 DC</button>
+          <button type="button" class="small" id="btn-paste-dc">貼上 DC 紀錄</button>
+          <button type="button" class="small" id="btn-clear-chat">清空畫面</button>
+        </div>
+        <form class="input-line" id="chat-form">
+          <input type="text" id="chat-input" placeholder="跟 Reona 說點什麼（中英皆可，她會用台灣女生口吻回你）..." autocomplete="off" />
+          <button type="submit" class="primary" id="send-btn">傳送</button>
+        </form>
+      </div>
     </div>
   </div>
+
+  <audio id="tts-audio" hidden></audio>
 
   <script>
     const chatBox = document.getElementById("chat-box");
     const chatForm = document.getElementById("chat-form");
     const chatInput = document.getElementById("chat-input");
-    const statusText = document.getElementById("status-text");
-    const zipFile = document.getElementById("zip-file");
-    const uploadZipBtn = document.getElementById("upload-zip-btn");
-    const zipResult = document.getElementById("zip-result");
+    const voiceEnabled = document.getElementById("voice-enabled");
+    const autoDcSync = document.getElementById("auto-dc-sync");
+    const pushToDc = document.getElementById("push-to-dc");
+    const ttsAudio = document.getElementById("tts-audio");
+
     const stage = document.getElementById("stage");
     const canvas = document.getElementById("live2d-canvas");
     const stageNote = document.getElementById("stage-note");
+    const zipFile = document.getElementById("zip-file");
+    const zipTip = document.getElementById("zip-tip");
 
     let pixiApp = null;
     let currentModel = null;
+    let zoomFactor = 1.22;
+    let lastAudioUrl = "";
+    const renderedTurnKeys = new Set();
 
-    function addMsg(cls, text) {
-      const lines = String(text || "").split("||").map(s => s.trim()).filter(Boolean);
-      for (const line of lines) {
-        const div = document.createElement("div");
-        div.className = "msg " + cls;
-        div.textContent = line;
-        chatBox.appendChild(div);
-      }
-      chatBox.scrollTop = chatBox.scrollHeight;
+    function pushChatBubble(sender, text) {
+      const parts = String(text || "").split("||").map(s => s.trim()).filter(Boolean);
+      parts.forEach((part, idx) => {
+        setTimeout(() => {
+          const div = document.createElement("div");
+          div.className = "msg " + (sender === "nick" ? "nick" : "reona");
+          div.textContent = part;
+          chatBox.appendChild(div);
+          chatBox.scrollTop = chatBox.scrollHeight;
+        }, idx * 450);
+      });
     }
 
-    function applyStatus(st) {
+    function updateStatusUI(st) {
       if (!st) return;
-      statusText.textContent = `雪梨時間：${st.sydney_time || "--"}｜狀態：${st.condition_label || "正常"}｜動態：${st.activity || ""}`;
+      document.getElementById("st-time").textContent = `雪梨時間：${st.sydney_time || "--"}`;
+      document.getElementById("st-cond").textContent = `身體狀態：${st.condition_label || "正常"}`;
+      document.getElementById("st-act").textContent = `目前動態：${st.activity || ""}`;
+
+      const q = st.tts_quota || {};
+      const dayUsed = q.day_used ?? 0;
+      const dayLimit = q.day_limit ?? 250;
+      const monthUsed = q.month_used ?? 0;
+      const monthLimit = q.month_limit ?? 8000;
+      document.getElementById("st-quota").textContent =
+        `今日語音：${dayUsed} / ${dayLimit} 字（本月 ${monthUsed} / ${monthLimit.toLocaleString()} 字）`;
+      if (q.exhausted) {
+        voiceEnabled.checked = false;
+      }
+
+      const dcText = st.dc_configured
+        ? `DC 同步：已設定頻道${st.last_dc_sync_at ? "（上次同步 " + st.last_dc_sync_at + "）" : ""}`
+        : `DC 同步：未設 Bot Token（可用「貼上 DC 紀錄」同步）`;
+      document.getElementById("st-dc").textContent = dcText;
     }
+
+    function playAudioWithMouth(url) {
+      if (!url) return;
+      lastAudioUrl = url;
+      ttsAudio.src = url;
+      ttsAudio.play().catch(() => {});
+
+      if (currentModel && currentModel.internalModel && currentModel.internalModel.coreModel) {
+        const core = currentModel.internalModel.coreModel;
+        const timer = setInterval(() => {
+          if (ttsAudio.paused || ttsAudio.ended) {
+            clearInterval(timer);
+            try { core.setParameterValueById("ParamMouthOpenY", 0); } catch (e) {}
+            return;
+          }
+          const openVal = 0.2 + Math.random() * 0.65;
+          try { core.setParameterValueById("ParamMouthOpenY", openVal); } catch (e) {}
+        }, 85);
+      }
+    }
+
+    document.getElementById("replay-voice-btn").addEventListener("click", () => {
+      if (lastAudioUrl) playAudioWithMouth(lastAudioUrl);
+    });
 
     function fitModelToStage() {
       if (!pixiApp || !currentModel) return;
-      const w = stage.clientWidth || 900;
-      const h = stage.clientHeight || 460;
+      const w = stage.clientWidth || 400;
+      const h = stage.clientHeight || 430;
       pixiApp.renderer.resize(w, h);
-      const scale = Math.min(
-        (w * 1.15) / Math.max(1, currentModel.width),
-        (h * 1.25) / Math.max(1, currentModel.height)
+      const baseScale = Math.min(
+        (w * 0.92) / Math.max(1, currentModel.width),
+        (h * 0.96) / Math.max(1, currentModel.height)
       );
-      currentModel.scale.set(scale);
+      currentModel.scale.set(baseScale * zoomFactor);
       currentModel.anchor.set(0.5, 0.5);
       currentModel.x = w / 2;
       currentModel.y = h / 2 + 24;
@@ -190,7 +365,7 @@
       if (!modelUrl) return;
       try {
         if (!window.PIXI || !PIXI.live2d || !PIXI.live2d.Live2DModel) {
-          stageNote.textContent = "無法載入 Live2D 渲染庫，但已解壓完成且不影響聊天";
+          stageNote.textContent = "無法載入 Live2D 渲染庫，但不影響聊天";
           return;
         }
         stageNote.style.display = "none";
@@ -200,8 +375,8 @@
             view: canvas,
             autoStart: true,
             transparent: true,
-            width: stage.clientWidth || 900,
-            height: stage.clientHeight || 460,
+            width: stage.clientWidth || 400,
+            height: stage.clientHeight || 430,
           });
         }
         if (currentModel) {
@@ -216,49 +391,136 @@
       } catch (err) {
         canvas.style.display = "none";
         stageNote.style.display = "block";
-        stageNote.textContent = "模型畫面載入失敗（不影響聊天功能）";
+        stageNote.textContent = "模型載入失敗（不影響聊天功能）";
       }
     }
 
+    document.getElementById("zoom-in-btn").addEventListener("click", () => {
+      zoomFactor = Math.min(2.2, +(zoomFactor + 0.12).toFixed(2));
+      fitModelToStage();
+    });
+    document.getElementById("zoom-out-btn").addEventListener("click", () => {
+      zoomFactor = Math.max(0.5, +(zoomFactor - 0.12).toFixed(2));
+      fitModelToStage();
+    });
+    document.getElementById("zoom-reset-btn").addEventListener("click", () => {
+      zoomFactor = 1.22;
+      fitModelToStage();
+    });
     window.addEventListener("resize", fitModelToStage);
 
-    async function refreshStatus() {
+    document.getElementById("upload-zip-btn").addEventListener("click", async () => {
+      const file = zipFile.files && zipFile.files[0];
+      if (!file) {
+        zipTip.textContent = "請先選取一個 .zip 檔";
+        return;
+      }
+      zipTip.textContent = "正在上傳並解壓...";
+      const fd = new FormData();
+      fd.append("file", file);
       try {
-        const res = await fetch("/status");
+        const res = await fetch("/upload_model", { method: "POST", body: fd });
         const data = await res.json();
-        if (data.ok && data.status) {
-          applyStatus(data.status);
-          if (data.status.model_loaded && data.status.model_url) {
-            await renderModel(data.status.model_url);
-          }
+        if (data.ok && data.model_url) {
+          zipTip.textContent = "已載入模型：" + (data.model_name || file.name);
+          await renderModel(data.model_url);
+        } else {
+          zipTip.textContent = data.error || "ZIP 處理完成（無 .model3.json）";
         }
-      } catch (e) {
-        statusText.textContent = "狀態讀取失敗";
+      } catch (err) {
+        zipTip.textContent = "上傳失敗：" + err.message;
+      }
+    });
+
+    async function syncFromDiscord(silent = false) {
+      try {
+        const res = await fetch("/sync_dc", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: "{}"
+        });
+        const data = await res.json();
+        if (data.status) updateStatusUI(data.status);
+        if (data.ok && Array.isArray(data.messages)) {
+          for (const m of data.messages) {
+            const key = `${m.sender}:${m.text}`;
+            if (!renderedTurnKeys.has(key)) {
+              renderedTurnKeys.add(key);
+              pushChatBubble(m.sender, m.text);
+            }
+          }
+        } else if (!silent && data.message) {
+          document.getElementById("st-dc").textContent = "DC 同步：" + data.message;
+        }
+      } catch (err) {
+        if (!silent) {
+          document.getElementById("st-dc").textContent = "DC 同步失敗：" + err.message;
+        }
       }
     }
+
+    document.getElementById("btn-sync-dc").addEventListener("click", () => syncFromDiscord(false));
+    document.getElementById("btn-paste-dc").addEventListener("click", () => {
+      document.getElementById("dc-paste-box").style.display = "block";
+    });
+    document.getElementById("close-paste-btn").addEventListener("click", () => {
+      document.getElementById("dc-paste-box").style.display = "none";
+    });
+    document.getElementById("apply-paste-btn").addEventListener("click", async () => {
+      const raw = document.getElementById("dc-paste-text").value.trim();
+      if (!raw) return;
+      try {
+        const res = await fetch("/sync_dc", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: raw })
+        });
+        const data = await res.json();
+        if (data.status) updateStatusUI(data.status);
+        if (data.ok && Array.isArray(data.messages)) {
+          for (const m of data.messages) {
+            const key = `${m.sender}:${m.text}`;
+            if (!renderedTurnKeys.has(key)) {
+              renderedTurnKeys.add(key);
+              pushChatBubble(m.sender, m.text);
+            }
+          }
+          document.getElementById("dc-paste-text").value = "";
+          document.getElementById("dc-paste-box").style.display = "none";
+        }
+      } catch (err) {}
+    });
 
     chatForm.addEventListener("submit", async (e) => {
       e.preventDefault();
       const text = chatInput.value.trim();
       if (!text) return;
       chatInput.value = "";
-      addMsg("nick", text);
+      renderedTurnKeys.add(`nick:${text}`);
+      pushChatBubble("nick", text);
+
       try {
         const res = await fetch("/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: text })
+          body: JSON.stringify({
+            message: text,
+            voice: voiceEnabled.checked,
+            sync_to_dc: pushToDc.checked,
+          })
         });
         const data = await res.json();
         if (data.ok && data.reply) {
-          addMsg("reona", data.reply);
-          applyStatus(data.status);
-        } else {
-          addMsg("tip", data.error || "沒有收到回覆");
+          renderedTurnKeys.add(`reona:${data.reply}`);
+          pushChatBubble("reona", data.reply);
+          updateStatusUI(data.status);
+          if (data.audio_url) {
+            playAudioWithMouth(data.audio_url);
+          } else if (data.tts_note) {
+            document.getElementById("st-quota").textContent = data.tts_note;
+          }
         }
-      } catch (err) {
-        addMsg("tip", "連線失敗：" + err.message);
-      }
+      } catch (err) {}
     });
 
     async function runProactive(mode) {
@@ -266,50 +528,55 @@
         const res = await fetch("/proactive", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ mode })
+          body: JSON.stringify({
+            mode,
+            voice: voiceEnabled.checked,
+            sync_to_dc: pushToDc.checked,
+          })
         });
         const data = await res.json();
         if (data.ok && data.reply) {
-          addMsg("reona", data.reply);
-          applyStatus(data.status);
-        } else {
-          addMsg("tip", data.error || "主動發訊失敗");
+          renderedTurnKeys.add(`reona:${data.reply}`);
+          pushChatBubble("reona", data.reply);
+          updateStatusUI(data.status);
+          if (data.audio_url) {
+            playAudioWithMouth(data.audio_url);
+          } else if (data.tts_note) {
+            document.getElementById("st-quota").textContent = data.tts_note;
+          }
         }
-      } catch (err) {
-        addMsg("tip", "連線失敗：" + err.message);
-      }
+      } catch (err) {}
     }
 
-    document.getElementById("proactive-auto-btn").addEventListener("click", () => runProactive("auto"));
-    document.getElementById("proactive-inc-btn").addEventListener("click", () => runProactive("incident"));
-    document.getElementById("proactive-chat-btn").addEventListener("click", () => runProactive("chit_chat"));
-    document.getElementById("proactive-rec-btn").addEventListener("click", () => runProactive("recover"));
-
-    uploadZipBtn.addEventListener("click", async () => {
-      const file = zipFile.files && zipFile.files[0];
-      if (!file) {
-        zipResult.textContent = "請先選取一個 .zip 檔";
-        return;
-      }
-      zipResult.textContent = "正在上傳並解壓...";
-      const fd = new FormData();
-      fd.append("file", file);
-      try {
-        const res = await fetch("/upload_model", { method: "POST", body: fd });
-        const data = await res.json();
-        if (data.ok && data.model_url) {
-          zipResult.textContent = "已載入模型：" + (data.model_name || file.name);
-          addMsg("tip", "角色 ZIP 已上傳並解壓完成");
-          await renderModel(data.model_url);
-        } else {
-          zipResult.textContent = data.error || "ZIP 處理完成（無 .model3.json）";
-        }
-      } catch (err) {
-        zipResult.textContent = "上傳失敗：" + err.message;
-      }
+    document.getElementById("btn-proactive-auto").addEventListener("click", () => runProactive("auto"));
+    document.getElementById("btn-incident").addEventListener("click", () => runProactive("incident"));
+    document.getElementById("btn-chitchat").addEventListener("click", () => runProactive("chit_chat"));
+    document.getElementById("btn-recover").addEventListener("click", () => runProactive("recover"));
+    document.getElementById("btn-clear-chat").addEventListener("click", () => {
+      chatBox.innerHTML = "";
     });
 
-    refreshStatus();
+    (async function init() {
+      try {
+        const res = await fetch("/status");
+        const data = await res.json();
+        if (data.ok && data.status) {
+          updateStatusUI(data.status);
+          if (data.status.model_loaded && data.status.model_url) {
+            await renderModel(data.status.model_url);
+          }
+        }
+      } catch (e) {}
+      if (autoDcSync.checked) {
+        await syncFromDiscord(true);
+      }
+    })();
+
+    setInterval(() => {
+      if (autoDcSync.checked) {
+        syncFromDiscord(true);
+      }
+    }, 20000);
   </script>
 </body>
 </html>
