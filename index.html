@@ -4,6 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Reona 雲端伴侶互動空間</title>
+  <script src="https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/pixi.js@6.5.10/dist/browser/pixi.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/pixi-live2d-display@0.4.0/dist/cubism4.min.js"></script>
   <style>
     * { box-sizing: border-box; }
     body {
@@ -24,6 +27,29 @@
       border: 1px solid #2c3448;
       border-radius: 12px;
       padding: 14px;
+    }
+    .stage {
+      width: 100%;
+      height: 280px;
+      background: #11141c;
+      border: 1px solid #262e40;
+      border-radius: 10px;
+      overflow: hidden;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #live2d-canvas {
+      width: 100%;
+      height: 100%;
+      display: none;
+    }
+    .stage-note {
+      color: #9aa5bc;
+      font-size: 13px;
+      padding: 12px;
+      text-align: center;
     }
     .row {
       display: flex;
@@ -58,7 +84,7 @@
       font-size: 14px;
     }
     .chat-box {
-      height: 360px;
+      height: 320px;
       overflow-y: auto;
       display: flex;
       flex-direction: column;
@@ -84,8 +110,12 @@
 <body>
   <div class="wrap">
     <div class="card">
-      <strong>Reona 狀態與角色 ZIP 上傳</strong>
-      <div class="muted" id="status-text">雪梨時間：讀取中｜狀態：讀取中</div>
+      <div class="stage" id="stage">
+        <canvas id="live2d-canvas"></canvas>
+        <div class="stage-note" id="stage-note">尚未顯示角色模型（上傳含 .model3.json 的 ZIP 後會嘗試顯示在此）</div>
+      </div>
+
+      <div class="muted" id="status-text" style="margin-top:10px;">雪梨時間：讀取中｜狀態：讀取中</div>
       <div class="row">
         <input type="file" id="zip-file" accept=".zip" />
         <button type="button" id="upload-zip-btn">上傳角色 ZIP</button>
@@ -118,6 +148,12 @@
     const zipFile = document.getElementById("zip-file");
     const uploadZipBtn = document.getElementById("upload-zip-btn");
     const zipResult = document.getElementById("zip-result");
+    const stage = document.getElementById("stage");
+    const canvas = document.getElementById("live2d-canvas");
+    const stageNote = document.getElementById("stage-note");
+
+    let pixiApp = null;
+    let currentModel = null;
 
     function addMsg(cls, text) {
       const lines = String(text || "").split("||").map(s => s.trim()).filter(Boolean);
@@ -135,13 +171,59 @@
       statusText.textContent = `雪梨時間：${st.sydney_time || "--"}｜狀態：${st.condition_label || "正常"}｜動態：${st.activity || ""}`;
     }
 
+    async function renderModel(modelUrl) {
+      if (!modelUrl) return;
+      try {
+        if (!window.PIXI || !PIXI.live2d || !PIXI.live2d.Live2DModel) {
+          stageNote.textContent = "無法載入 Live2D 渲染庫，但已解壓完成且不影響聊天";
+          return;
+        }
+        stageNote.style.display = "none";
+        canvas.style.display = "block";
+        if (!pixiApp) {
+          pixiApp = new PIXI.Application({
+            view: canvas,
+            autoStart: true,
+            transparent: true,
+            width: stage.clientWidth || 800,
+            height: stage.clientHeight || 280,
+          });
+        }
+        if (currentModel) {
+          pixiApp.stage.removeChild(currentModel);
+          currentModel.destroy();
+          currentModel = null;
+        }
+        const model = await PIXI.live2d.Live2DModel.from(modelUrl);
+        currentModel = model;
+        const scale = Math.min(
+          (pixiApp.screen.width * 0.9) / Math.max(1, model.width),
+          (pixiApp.screen.height * 0.95) / Math.max(1, model.height)
+        );
+        model.scale.set(scale);
+        model.anchor.set(0.5, 0.5);
+        model.x = pixiApp.screen.width / 2;
+        model.y = pixiApp.screen.height / 2 + 8;
+        pixiApp.stage.addChild(model);
+      } catch (err) {
+        canvas.style.display = "none";
+        stageNote.style.display = "block";
+        stageNote.textContent = "模型畫面載入失敗（不影響聊天功能）";
+      }
+    }
+
     async function refreshStatus() {
       try {
         const res = await fetch("/status");
         const data = await res.json();
-        if (data.ok && data.status) applyStatus(data.status);
+        if (data.ok && data.status) {
+          applyStatus(data.status);
+          if (data.status.model_loaded && data.status.model_url) {
+            await renderModel(data.status.model_url);
+          }
+        }
       } catch (e) {
-        statusText.textContent = "狀態讀取失敗（請確認後端 /status 路由）";
+        statusText.textContent = "狀態讀取失敗";
       }
     }
 
@@ -205,9 +287,10 @@
       try {
         const res = await fetch("/upload_model", { method: "POST", body: fd });
         const data = await res.json();
-        if (data.ok) {
+        if (data.ok && data.model_url) {
           zipResult.textContent = "已載入模型：" + (data.model_name || file.name);
           addMsg("tip", "角色 ZIP 已上傳並解壓完成");
+          await renderModel(data.model_url);
         } else {
           zipResult.textContent = data.error || "ZIP 處理完成（無 .model3.json）";
         }
