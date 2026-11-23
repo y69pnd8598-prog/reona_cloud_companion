@@ -17,7 +17,7 @@
       color: #f3f5f8;
     }
     .wrap {
-      max-width: 900px;
+      max-width: 960px;
       margin: 0 auto;
       display: grid;
       gap: 14px;
@@ -30,7 +30,7 @@
     }
     .stage {
       width: 100%;
-      height: 280px;
+      height: 460px;
       background: #11141c;
       border: 1px solid #262e40;
       border-radius: 10px;
@@ -84,7 +84,7 @@
       font-size: 14px;
     }
     .chat-box {
-      height: 320px;
+      height: 300px;
       overflow-y: auto;
       display: flex;
       flex-direction: column;
@@ -171,6 +171,21 @@
       statusText.textContent = `雪梨時間：${st.sydney_time || "--"}｜狀態：${st.condition_label || "正常"}｜動態：${st.activity || ""}`;
     }
 
+    function fitModelToStage() {
+      if (!pixiApp || !currentModel) return;
+      const w = stage.clientWidth || 900;
+      const h = stage.clientHeight || 460;
+      pixiApp.renderer.resize(w, h);
+      const scale = Math.min(
+        (w * 1.15) / Math.max(1, currentModel.width),
+        (h * 1.25) / Math.max(1, currentModel.height)
+      );
+      currentModel.scale.set(scale);
+      currentModel.anchor.set(0.5, 0.5);
+      currentModel.x = w / 2;
+      currentModel.y = h / 2 + 24;
+    }
+
     async function renderModel(modelUrl) {
       if (!modelUrl) return;
       try {
@@ -185,8 +200,8 @@
             view: canvas,
             autoStart: true,
             transparent: true,
-            width: stage.clientWidth || 800,
-            height: stage.clientHeight || 280,
+            width: stage.clientWidth || 900,
+            height: stage.clientHeight || 460,
           });
         }
         if (currentModel) {
@@ -196,21 +211,16 @@
         }
         const model = await PIXI.live2d.Live2DModel.from(modelUrl);
         currentModel = model;
-        const scale = Math.min(
-          (pixiApp.screen.width * 0.9) / Math.max(1, model.width),
-          (pixiApp.screen.height * 0.95) / Math.max(1, model.height)
-        );
-        model.scale.set(scale);
-        model.anchor.set(0.5, 0.5);
-        model.x = pixiApp.screen.width / 2;
-        model.y = pixiApp.screen.height / 2 + 8;
         pixiApp.stage.addChild(model);
+        fitModelToStage();
       } catch (err) {
         canvas.style.display = "none";
         stageNote.style.display = "block";
         stageNote.textContent = "模型畫面載入失敗（不影響聊天功能）";
       }
     }
+
+    window.addEventListener("resize", fitModelToStage);
 
     async function refreshStatus() {
       try {
