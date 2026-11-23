@@ -20,8 +20,17 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
 FISH_API_KEY = os.getenv("FISH_API_KEY", "").strip()
 FISH_MODEL_ID = os.getenv("FISH_MODEL_ID", "7f92f8afb8ec43bf81429cc1c9199cb1").strip()
 
-DISCORD_BOT_TOKEN = (os.getenv("DISCORD_BOT_TOKEN") or os.getenv("DISCORD_TOKEN") or "").strip()
-DISCORD_CHANNEL_ID = (os.getenv("DISCORD_CHANNEL_ID") or "").strip()
+# 可直接把你的 DC Bot Token 與 Channel ID 貼在引號內（若 Render 環境變數有設則優先吃環境變數）
+DISCORD_BOT_TOKEN = (
+    os.getenv("DISCORD_BOT_TOKEN")
+    or os.getenv("DISCORD_TOKEN")
+    or "在這裡貼上你的_DC_BOT_TOKEN"
+).strip()
+
+DISCORD_CHANNEL_ID = (
+    os.getenv("DISCORD_CHANNEL_ID")
+    or "在這裡貼上你的_DC_CHANNEL_ID"
+).strip()
 
 DAILY_TTS_CHAR_LIMIT = 250
 MONTHLY_TTS_CHAR_LIMIT = 8000
@@ -109,6 +118,15 @@ DEFAULT_MEMORY = {
         "month_chars": 0,
     },
 }
+
+
+def is_dc_configured() -> bool:
+    return (
+        bool(DISCORD_BOT_TOKEN)
+        and "在這裡貼上" not in DISCORD_BOT_TOKEN
+        and bool(DISCORD_CHANNEL_ID)
+        and "在這裡貼上" not in DISCORD_CHANNEL_ID
+    )
 
 
 def load_memory() -> dict:
@@ -254,7 +272,7 @@ def get_status_snapshot() -> dict:
         "model_loaded": bool(model_rel_path),
         "model_url": f"/model/{model_rel_path}" if model_rel_path else "",
         "model_name": Path(model_rel_path).name if model_rel_path else "",
-        "dc_configured": bool(DISCORD_BOT_TOKEN and DISCORD_CHANNEL_ID),
+        "dc_configured": is_dc_configured(),
         "last_dc_sync_at": memory.get("last_dc_sync_at", ""),
         "tts_quota": get_tts_quota_info(now_dt),
     }
@@ -427,7 +445,7 @@ def merge_turns_into_memory(new_turns: list[str]) -> list[str]:
 
 
 def push_message_to_discord(text: str, speaker_prefix: str = "") -> bool:
-    if not DISCORD_BOT_TOKEN or not DISCORD_CHANNEL_ID or not text:
+    if not is_dc_configured() or not text:
         return False
     content = f"{speaker_prefix}{text}".strip()[:1900]
     url = f"https://discord.com/api/v10/channels/{DISCORD_CHANNEL_ID}/messages"
@@ -448,8 +466,8 @@ def push_message_to_discord(text: str, speaker_prefix: str = "") -> bool:
 
 
 def fetch_discord_channel_turns(limit: int = 20) -> tuple[bool, list[dict], str]:
-    if not DISCORD_BOT_TOKEN or not DISCORD_CHANNEL_ID:
-        return False, [], "尚未設定 DISCORD_BOT_TOKEN 或 DISCORD_CHANNEL_ID（仍可用手動貼上同步）"
+    if not is_dc_configured():
+        return False, [], "尚未填入 DC Bot Token 或 Channel ID（仍可用貼上 DC 紀錄同步）"
 
     url = f"https://discord.com/api/v10/channels/{DISCORD_CHANNEL_ID}/messages?limit={min(max(limit, 1), 50)}"
     try:
@@ -605,7 +623,7 @@ def health():
         "groq_key_set": bool(GROQ_API_KEY),
         "groq_key_prefix": GROQ_API_KEY[:6] + "..." if GROQ_API_KEY else "",
         "fish_key_set": bool(FISH_API_KEY),
-        "dc_configured": bool(DISCORD_BOT_TOKEN and DISCORD_CHANNEL_ID),
+        "dc_configured": is_dc_configured(),
         "models": TEXT_MODELS,
         "status": get_status_snapshot(),
     })
