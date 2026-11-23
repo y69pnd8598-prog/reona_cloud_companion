@@ -195,7 +195,6 @@
 </head>
 <body>
   <div class="app-shell">
-    <!-- 左欄：固定角色視線區、狀態、ZIP 與縮放 -->
     <div class="left-col">
       <div class="stage" id="stage">
         <canvas id="live2d-canvas"></canvas>
@@ -224,14 +223,13 @@
       <div class="muted" id="zip-tip">尚未上傳角色 ZIP</div>
     </div>
 
-    <!-- 右欄：獨立聊天視窗、DC 同步與互動按鈕 -->
     <div class="right-col">
       <div class="top-bar">
         <strong>Reona 陪伴聊天室</strong>
         <div class="toggles">
           <label><input type="checkbox" id="voice-enabled" checked /> 語音（每日 250 字上限）</label>
           <label><input type="checkbox" id="auto-dc-sync" checked /> 自動同步 DC</label>
-          <label><input type="checkbox" id="push-to-dc" /> 同步發送到 DC</label>
+          <label><input type="checkbox" id="push-to-dc" checked /> 同步發送到 DC</label>
         </div>
       </div>
 
