@@ -1,506 +1,222 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-Hant">
 <head>
-    <meta charset="UTF-8">
-    <title>薇薇安日常互動夥伴（視訊＋DC 連動版）</title>
-    <link rel="icon" href="data:,">
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        html, body {
-            width: 100%; height: 100%;
-            background: radial-gradient(circle at top, #1b1b26 0%, #0d0d12 100%);
-            overflow: hidden;
-            color: #fff;
-            font-family: "Microsoft JhengHei", sans-serif;
-            display: flex;
-            flex-direction: column;
-            justify-content: flex-end;
-            align-items: center;
-        }
-
-        /* 左側今日狀態面板 */
-        .status-panel {
-            position: fixed;
-            top: 20px;
-            left: 20px;
-            width: 295px;
-            max-height: calc(100vh - 110px);
-            overflow-y: auto;
-            z-index: 30;
-            background: rgba(24, 24, 34, 0.9);
-            border: 1px solid rgba(255, 255, 255, 0.14);
-            border-radius: 18px;
-            padding: 14px 16px;
-            backdrop-filter: blur(12px);
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
-        }
-        .status-title {
-            font-size: 15px;
-            font-weight: bold;
-            color: #ff7b9c;
-            margin-bottom: 8px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .status-row {
-            font-size: 13px;
-            line-height: 1.55;
-            color: #e6e6f0;
-            margin-bottom: 5px;
-        }
-        .reason-box {
-            background: rgba(255, 255, 255, 0.06);
-            border-left: 3px solid #ff7b9c;
-            padding: 6px 10px;
-            border-radius: 6px;
-            font-size: 12px;
-            color: #d0d0e0;
-            margin: 6px 0 8px 0;
-            line-height: 1.45;
-        }
-        .dc-feed-box {
-            background: rgba(88, 101, 242, 0.14);
-            border: 1px solid rgba(88, 101, 242, 0.35);
-            border-radius: 8px;
-            padding: 6px 10px;
-            font-size: 12px;
-            color: #cfd6ff;
-            margin-top: 6px;
-            line-height: 1.45;
-            max-height: 64px;
-            overflow-y: auto;
-        }
-        .badge {
-            display: inline-block;
-            padding: 1px 8px;
-            border-radius: 10px;
-            font-size: 12px;
-            font-weight: bold;
-            background: rgba(255, 255, 255, 0.12);
-        }
-        .badge-sick {
-            background: rgba(255, 167, 38, 0.25);
-            color: #ffb74d;
-        }
-        .badge-happy {
-            background: rgba(255, 82, 119, 0.25);
-            color: #ff85a1;
-        }
-        .badge-sad {
-            background: rgba(100, 181, 246, 0.25);
-            color: #90caf9;
-        }
-        .panel-actions {
-            margin-top: 10px;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 6px;
-        }
-        .mini-btn {
-            background: rgba(255, 255, 255, 0.08);
-            border: 1px solid rgba(255, 255, 255, 0.16);
-            color: #f0f0f8;
-            border-radius: 10px;
-            padding: 5px 9px;
-            font-size: 12px;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        .mini-btn:hover {
-            background: rgba(255, 82, 119, 0.35);
-            border-color: #ff5277;
-        }
-        .mini-btn.skin-btn {
-            background: rgba(255, 123, 156, 0.2);
-            border-color: rgba(255, 123, 156, 0.5);
-            color: #ffd1dc;
-        }
-
-        /* 右上角輕巧視訊控制列 */
-        .call-bar {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 30;
-            background: rgba(24, 24, 34, 0.9);
-            border: 1px solid rgba(255, 255, 255, 0.16);
-            border-radius: 16px;
-            padding: 10px 14px;
-            backdrop-filter: blur(12px);
-            box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            min-width: 210px;
-        }
-        .call-status {
-            font-size: 12.5px;
-            color: #e6e6f0;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 8px;
-        }
-        .call-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: #777;
-            display: inline-block;
-            margin-right: 6px;
-        }
-        .call-dot.live {
-            background: #ff5277;
-            box-shadow: 0 0 8px #ff5277;
-        }
-        .call-btns {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 6px;
-        }
-        .call-btn {
-            background: rgba(255, 255, 255, 0.08);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            color: #fff;
-            border-radius: 10px;
-            padding: 6px 10px;
-            font-size: 12px;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        .call-btn:hover, .call-btn.active {
-            background: #ff5277;
-            border-color: #ff5277;
-        }
-
-        #status {
-            position: fixed;
-            z-index: 100;
-            font-size: 15px;
-            color: #ffcc00;
-            text-align: center;
-            top: 40%;
-            left: 50%;
-            width: 80%;
-            max-width: 520px;
-            transform: translate(-50%, -50%);
-            line-height: 1.6;
-            pointer-events: none;
-        }
-
-        #dialogBox {
-            position: fixed;
-            z-index: 99999;
-            bottom: 92px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(22, 22, 30, 0.95);
-            border: 2px solid #ff5277;
-            border-radius: 18px;
-            padding: 12px 20px;
-            max-width: 540px;
-            width: calc(100% - 40px);
-            text-align: center;
-            font-size: 16px;
-            line-height: 1.5;
-            color: #ffffff;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.6);
-            backdrop-filter: blur(10px);
-            display: none;
-        }
-
-        .chat-bar {
-            position: fixed;
-            bottom: 18px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 50;
-            width: calc(100% - 40px);
-            max-width: 600px;
-            display: flex;
-            align-items: center;
-            background: rgba(30, 30, 40, 0.92);
-            border: 1px solid rgba(255, 255, 255, 0.18);
-            border-radius: 25px;
-            padding: 6px 12px 6px 16px;
-            backdrop-filter: blur(10px);
-            box-shadow: 0 8px 32px rgba(0,0,0,0.45);
-        }
-        .chat-input {
-            flex: 1;
-            min-width: 0;
-            background: transparent;
-            border: none;
-            outline: none;
-            color: white;
-            font-size: 15px;
-            padding: 8px;
-        }
-        .chat-input::placeholder { color: rgba(255, 255, 255, 0.45); }
-        .send-btn {
-            flex-shrink: 0;
-            background: #ff5277;
-            border: none;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            cursor: pointer;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            transition: transform 0.12s, background 0.2s;
-        }
-        .send-btn:hover { background: #ff6b8b; }
-        .send-btn:active { transform: scale(0.92); }
-        .send-btn svg { width: 18px; height: 18px; fill: white; pointer-events: none; }
-    </style>
-
-    <script src="https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/7.3.3/pixi.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/pixi-live2d-display/dist/cubism4.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reona 雲端伴侶互動空間</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 16px;
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang TC", "Microsoft JhengHei", sans-serif;
+      background: #11141c;
+      color: #f3f5f8;
+    }
+    .wrap {
+      max-width: 900px;
+      margin: 0 auto;
+      display: grid;
+      gap: 14px;
+    }
+    .card {
+      background: #1a1f2c;
+      border: 1px solid #2c3448;
+      border-radius: 12px;
+      padding: 14px;
+    }
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      margin-top: 8px;
+    }
+    button {
+      padding: 9px 14px;
+      border-radius: 8px;
+      border: 1px solid #3c4763;
+      background: #252d40;
+      color: #fff;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    button:hover { background: #313c54; }
+    button.primary {
+      background: #e85d88;
+      border-color: #e85d88;
+      font-weight: 600;
+    }
+    input[type="text"] {
+      flex: 1;
+      min-width: 200px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid #3c4763;
+      background: #11141c;
+      color: #fff;
+      font-size: 14px;
+    }
+    .chat-box {
+      height: 360px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 10px;
+      background: #11141c;
+      border-radius: 8px;
+      border: 1px solid #262e40;
+    }
+    .msg {
+      max-width: 80%;
+      padding: 9px 12px;
+      border-radius: 10px;
+      line-height: 1.5;
+      font-size: 14px;
+    }
+    .msg.nick { align-self: flex-end; background: #e85d88; color: #fff; }
+    .msg.reona { align-self: flex-start; background: #252d40; color: #f3f5f8; }
+    .msg.tip { align-self: center; color: #9aa5bc; font-size: 12px; background: transparent; }
+    .muted { color: #9aa5bc; font-size: 13px; }
+  </style>
 </head>
 <body>
-    <!-- 隱藏的 ZIP 皮膚選取器 -->
-    <input type="file" id="skinZipInput" accept=".zip" style="display: none;" />
-
-    <!-- 左側今日狀態面板 -->
-    <aside class="status-panel">
-        <div class="status-title">
-            <span>📋 薇薇安今日狀態</span>
-            <span id="simClock" class="badge">--:--</span>
-        </div>
-        <div class="status-row">DC 同步：<span id="dcSyncBadge" class="badge">檢查中</span></div>
-        <div class="status-row">生理狀況：<span id="symptomBadge" class="badge">健康</span></div>
-        <div id="reasonBox" class="reason-box">原因：等待同步 DC 狀態...</div>
-        <div class="status-row">目前情緒：<span id="moodBadge" class="badge">開心</span></div>
-        <div class="status-row">目前造型：<span id="skinNameBadge" class="badge">預設造型</span></div>
-        <div class="status-row">作息提示：<span id="mealHintText">日常陪伴中</span></div>
-        <div id="dcFeedBox" class="dc-feed-box">DC 近期動態：尚無紀錄</div>
-
-        <div class="panel-actions">
-            <button type="button" id="btnUploadSkin" class="mini-btn skin-btn">👗 換皮膚(ZIP)</button>
-            <button type="button" id="btnResetSkin" class="mini-btn">↩️ 還原預設</button>
-            <button type="button" id="btnSyncDc" class="mini-btn">🔄 同步 DC</button>
-            <button type="button" id="btnCenterModel" class="mini-btn">🎯 置中</button>
-            <button type="button" id="btnRandomSymptom" class="mini-btn">🎲 切換不適</button>
-            <button type="button" id="btnCare" class="mini-btn">💊 吃藥休息</button>
-            <button type="button" id="btnHappy" class="mini-btn">😊 開心</button>
-            <button type="button" id="btnSad" class="mini-btn">🥺 難過</button>
-        </div>
-    </aside>
-
-    <!-- 右上角視訊通話控制列 -->
-    <div class="call-bar" id="callBar">
-        <div class="call-status">
-            <span><span id="callDot" class="call-dot"></span><span id="callLabel">視訊待機中</span></span>
-        </div>
-        <div class="call-btns">
-            <button type="button" id="btnToggleCall" class="call-btn">📞 開始視訊</button>
-            <button type="button" id="btnAutoTalk" class="call-btn">🎙️ 主動搭話：關</button>
-            <button type="button" id="btnTalkNow" class="call-btn">💬 讓她先說</button>
-        </div>
+  <div class="wrap">
+    <div class="card">
+      <strong>Reona 狀態與角色 ZIP 上傳</strong>
+      <div class="muted" id="status-text">雪梨時間：讀取中｜狀態：讀取中</div>
+      <div class="row">
+        <input type="file" id="zip-file" accept=".zip" />
+        <button type="button" id="upload-zip-btn">上傳角色 ZIP</button>
+        <span class="muted" id="zip-result">尚未上傳角色 ZIP（不影響聊天）</span>
+      </div>
+      <div class="row">
+        <button type="button" class="primary" id="proactive-auto-btn">讓她主動找我</button>
+        <button type="button" id="proactive-inc-btn">模擬有狀況／吃壞肚子</button>
+        <button type="button" id="proactive-chat-btn">分享生活瑣事</button>
+        <button type="button" id="proactive-rec-btn">好轉報平安</button>
+      </div>
     </div>
 
-    <div id="status">正在召喚薇薇安...</div>
-    <div id="dialogBox"></div>
-
-    <div class="chat-bar">
-        <input type="text" id="userInput" class="chat-input" placeholder="跟薇薇安說點什麼吧..." />
-        <button type="button" id="sendBtn" class="send-btn" aria-label="送出訊息">
-            <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path></svg>
-        </button>
+    <div class="card">
+      <div class="chat-box" id="chat-box">
+        <div class="msg tip">已就緒，可以直接輸入訊息或按上方按鈕互動</div>
+      </div>
+      <form class="row" id="chat-form">
+        <input type="text" id="chat-input" placeholder="跟 Reona 說點什麼..." autocomplete="off" />
+        <button type="submit" class="primary" id="send-btn">傳送</button>
+      </form>
     </div>
+  </div>
 
-    <script>
-        const DEFAULT_MODEL_URL = 'model/薇薇安.model3.json';
-        const statusDiv = document.getElementById('status');
-        const userInput = document.getElementById('userInput');
-        const sendBtn = document.getElementById('sendBtn');
-        const dialogBox = document.getElementById('dialogBox');
-        const skinZipInput = document.getElementById('skinZipInput');
+  <script>
+    const chatBox = document.getElementById("chat-box");
+    const chatForm = document.getElementById("chat-form");
+    const chatInput = document.getElementById("chat-input");
+    const statusText = document.getElementById("status-text");
+    const zipFile = document.getElementById("zip-file");
+    const uploadZipBtn = document.getElementById("upload-zip-btn");
+    const zipResult = document.getElementById("zip-result");
 
-        let state = {
-            hour: new Date().getHours(),
-            minute: new Date().getMinutes(),
-            symptom: "健康",
-            reason: "在雪梨享受陽光與生活，精神很好！",
-            mood: "開心",
-            action: "idle_normal",
-            skinName: "預設造型",
-            meal_hint: "日常陪伴中",
-            dc_badge: "正常",
-            synced: false,
-            recent_turns: [],
-            _manual_override: false
-        };
+    function addMsg(cls, text) {
+      const lines = String(text || "").split("||").map(s => s.trim()).filter(Boolean);
+      for (const line of lines) {
+        const div = document.createElement("div");
+        div.className = "msg " + cls;
+        div.textContent = line;
+        chatBox.appendChild(div);
+      }
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
 
-        let pixiApp = null;
-        let live2dModel = null;
-        let activeBlobUrls = [];
-        let mouthOpenValue = 0;
-        let fallbackMouthTimer = null;
-        let isRequestingChat = false;
-        let lastInteractionTime = Date.now();
-        let actionStartedAt = 0;
-        let inCallMode = false;
-        let autoTalkEnabled = false;
-        let autoTalkTimer = null;
+    function applyStatus(st) {
+      if (!st) return;
+      statusText.textContent = `雪梨時間：${st.sydney_time || "--"}｜狀態：${st.condition_label || "正常"}｜動態：${st.activity || ""}`;
+    }
 
-        function revokeActiveBlobUrls() {
-            for (const u of activeBlobUrls) {
-                try { URL.revokeObjectURL(u); } catch (e) {}
-            }
-            activeBlobUrls = [];
+    async function refreshStatus() {
+      try {
+        const res = await fetch("/status");
+        const data = await res.json();
+        if (data.ok && data.status) applyStatus(data.status);
+      } catch (e) {
+        statusText.textContent = "狀態讀取失敗（請確認後端 /status 路由）";
+      }
+    }
+
+    chatForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const text = chatInput.value.trim();
+      if (!text) return;
+      chatInput.value = "";
+      addMsg("nick", text);
+      try {
+        const res = await fetch("/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: text })
+        });
+        const data = await res.json();
+        if (data.ok && data.reply) {
+          addMsg("reona", data.reply);
+          applyStatus(data.status);
+        } else {
+          addMsg("tip", data.error || "沒有收到回覆");
         }
+      } catch (err) {
+        addMsg("tip", "連線失敗：" + err.message);
+      }
+    });
 
-        function centerAndScaleModel() {
-            if (!live2dModel) return;
-            const targetHeight = window.innerHeight * 0.92;
-            const rawH = (live2dModel.height / (live2dModel.scale.y || 1)) || 1800;
-            const scale = Math.max(0.22, Math.min(0.65, targetHeight / rawH));
-            live2dModel.scale.set(scale);
-            if (live2dModel.anchor) {
-                live2dModel.anchor.set(0.5, 0.48);
-                live2dModel.x = window.innerWidth * 0.52;
-                live2dModel.y = window.innerHeight * 0.54;
-            } else {
-                live2dModel.x = (window.innerWidth - live2dModel.width) / 2;
-                live2dModel.y = (window.innerHeight - live2dModel.height) / 2;
-            }
+    async function runProactive(mode) {
+      try {
+        const res = await fetch("/proactive", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mode })
+        });
+        const data = await res.json();
+        if (data.ok && data.reply) {
+          addMsg("reona", data.reply);
+          applyStatus(data.status);
+        } else {
+          addMsg("tip", data.error || "主動發訊失敗");
         }
+      } catch (err) {
+        addMsg("tip", "連線失敗：" + err.message);
+      }
+    }
 
-        function bindModelInteractions(model) {
-            model.interactive = true;
-            model.buttonMode = true;
-            model.on('pointerdown', (e) => {
-                model.dragging = true;
-                model._pointerX = e.data.global.x - model.x;
-                model._pointerY = e.data.global.y - model.y;
-            });
-            model.on('pointermove', (e) => {
-                if (model.dragging) {
-                    model.x = e.data.global.x - model._pointerX;
-                    model.y = e.data.global.y - model._pointerY;
-                }
-            });
-            model.on('pointerup', () => model.dragging = false);
-            model.on('pointerupoutside', () => model.dragging = false);
+    document.getElementById("proactive-auto-btn").addEventListener("click", () => runProactive("auto"));
+    document.getElementById("proactive-inc-btn").addEventListener("click", () => runProactive("incident"));
+    document.getElementById("proactive-chat-btn").addEventListener("click", () => runProactive("chit_chat"));
+    document.getElementById("proactive-rec-btn").addEventListener("click", () => runProactive("recover"));
+
+    uploadZipBtn.addEventListener("click", async () => {
+      const file = zipFile.files && zipFile.files[0];
+      if (!file) {
+        zipResult.textContent = "請先選取一個 .zip 檔";
+        return;
+      }
+      zipResult.textContent = "正在上傳並解壓...";
+      const fd = new FormData();
+      fd.append("file", file);
+      try {
+        const res = await fetch("/upload_model", { method: "POST", body: fd });
+        const data = await res.json();
+        if (data.ok) {
+          zipResult.textContent = "已載入模型：" + (data.model_name || file.name);
+          addMsg("tip", "角色 ZIP 已上傳並解壓完成");
+        } else {
+          zipResult.textContent = data.error || "ZIP 處理完成（無 .model3.json）";
         }
+      } catch (err) {
+        zipResult.textContent = "上傳失敗：" + err.message;
+      }
+    });
 
-        async function mountLive2DModel(modelSource, skinLabel = "預設造型") {
-            if (!pixiApp) return;
-            statusDiv.style.display = 'block';
-            statusDiv.innerText = `正在換上「${skinLabel}」...`;
-
-            const newModel = await PIXI.live2d.Live2DModel.from(modelSource);
-            if (live2dModel) {
-                pixiApp.stage.removeChild(live2dModel);
-                try { live2dModel.destroy({ children: true }); } catch (e) {}
-            }
-
-            live2dModel = newModel;
-            pixiApp.stage.addChild(newModel);
-            bindModelInteractions(newModel);
-            centerAndScaleModel();
-
-            state.skinName = skinLabel;
-            renderStatusPanel();
-            setEmotionExpression(state.mood);
-            statusDiv.style.display = 'none';
-        }
-
-        async function loadSkinFromZip(file) {
-            if (!file) return;
-            if (typeof JSZip === 'undefined') {
-                showDialog("ZIP 引擎還沒載入完成，請稍後再試一次！");
-                return;
-            }
-
-            statusDiv.style.display = 'block';
-            statusDiv.innerText = `正在解壓縮皮膚包：${file.name}...`;
-
-            try {
-                const zip = await JSZip.loadAsync(file);
-                const entries = {};
-                let modelJsonPath = null;
-
-                for (const [rawPath, zipEntry] of Object.entries(zip.files)) {
-                    if (zipEntry.dir) continue;
-                    const normPath = rawPath.replace(/\\/g, '/');
-                    if (normPath.startsWith('__MACOSX/') || normPath.split('/').pop().startsWith('._')) continue;
-                    entries[normPath] = zipEntry;
-                    if (normPath.toLowerCase().endsWith('.model3.json') && !modelJsonPath) {
-                        modelJsonPath = normPath;
-                    }
-                }
-
-                const cleanSkinName = file.name.replace(/\.zip$/i, '');
-
-                if (modelJsonPath) {
-                    revokeActiveBlobUrls();
-                    const baseDir = modelJsonPath.includes('/')
-                        ? modelJsonPath.slice(0, modelJsonPath.lastIndexOf('/') + 1)
-                        : '';
-
-                    const resolveZipEntry = (relRef) => {
-                        const cleanRef = String(relRef || '').replace(/^\.\//, '').replace(/\\/g, '/');
-                        const fullCandidate = baseDir + cleanRef;
-                        if (entries[fullCandidate]) return entries[fullCandidate];
-                        if (entries[cleanRef]) return entries[cleanRef];
-                        const targetBase = cleanRef.split('/').pop().toLowerCase();
-                        for (const [k, ent] of Object.entries(entries)) {
-                            if (k.split('/').pop().toLowerCase() === targetBase) return ent;
-                        }
-                        return null;
-                    };
-
-                    const toBlobUrl = async (zipEntry, mimeType) => {
-                        const buf = await zipEntry.async('arraybuffer');
-                        const url = URL.createObjectURL(new Blob([buf], { type: mimeType }));
-                        activeBlobUrls.push(url);
-                        return url;
-                    };
-
-                    const modelJsonText = await entries[modelJsonPath].async('string');
-                    const modelConfig = JSON.parse(modelJsonText);
-                    const fileRefs = modelConfig.FileReferences || {};
-
-                    if (fileRefs.Moc) {
-                        const mocEnt = resolveZipEntry(fileRefs.Moc);
-                        if (mocEnt) fileRefs.Moc = await toBlobUrl(mocEnt, 'application/octet-stream');
-                    }
-
-                    if (Array.isArray(fileRefs.Textures)) {
-                        for (let i = 0; i < fileRefs.Textures.length; i++) {
-                            const texEnt = resolveZipEntry(fileRefs.Textures[i]);
-                            if (texEnt) fileRefs.Textures[i] = await toBlobUrl(texEnt, 'image/png');
-                        }
-                    }
-
-                    if (fileRefs.Physics) {
-                        const phyEnt = resolveZipEntry(fileRefs.Physics);
-                        if (phyEnt) fileRefs.Physics = await toBlobUrl(phyEnt, 'application/json');
-                    }
-
-                    if (fileRefs.Pose) {
-                        const poseEnt = resolveZipEntry(fileRefs.Pose);
-                        if (poseEnt) fileRefs.Pose = await toBlobUrl(poseEnt, 'application/json');
-                    }
-
-                    if (Array.isArray(fileRefs.Expressions)) {
-                        for (const exp of fileRefs.Expressions) {
-                            if (exp && exp.File) {
-                                const expEnt = resolveZipEntry(exp.File);
-                                if (expEnt) exp.File = await toBlobUrl(expEnt, 'application/json');
-                            }
-                        }
-                    }
-
-                    if (fileRefs.Motions && typeof fileRefs.Motions === 'object') {
-                        for (const groupList of Object.values(fileRefs.Motions)) {
-                            if (!Array.isArray(groupList)) continue;
-                            for (const mItem of groupList) {
-                                if (mItem && mItem.File) {
-                                    const mEnt =
+    refreshStatus();
+  </script>
+</body>
+</html>
